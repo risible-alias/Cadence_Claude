@@ -1,0 +1,928 @@
+/* Refined editorial direction. All colour comes from tokens.css. */
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 17px;
+  line-height: 1.45;
+  font-variant-numeric: oldstyle-nums;
+}
+:focus-visible {
+  outline-color: var(--focus);
+}
+.page {
+  max-width: 34rem;
+  margin: 0 auto;
+  padding: 1.1rem max(1.4rem, env(safe-area-inset-left)) calc(env(safe-area-inset-bottom) + 6.5rem);
+}
+body:has(.proto) .page {
+  padding-top: 0.9rem;
+}
+body:not(:has(.proto)) .page {
+  padding-top: calc(env(safe-area-inset-top) + 1.6rem);
+}
+
+/* Prototype-only strip. Deliberately plain: it is not part of the design. */
+.proto {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.9rem;
+  align-items: center;
+  padding: calc(env(safe-area-inset-top) + 0.4rem) 0.9rem 0.4rem;
+  background: var(--paper-sunk);
+  color: var(--ink-soft);
+  font: 11px/1.2 ui-monospace, Menlo, monospace;
+}
+.proto a {
+  color: inherit;
+}
+.proto button {
+  margin-left: 0.3rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--rule-strong);
+}
+.proto button[aria-pressed='true'] {
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
+}
+
+.kicker {
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  font-variant-numeric: lining-nums;
+}
+.kicker .n {
+  float: right;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  font-style: italic;
+  font-size: 0.85rem;
+}
+.mast h1 {
+  font-size: 2rem;
+  line-height: 1.15;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+.mast h1 em {
+  color: var(--ink-soft);
+}
+section,
+.views {
+  margin-top: 1.5rem;
+}
+.what {
+  font-weight: 600;
+}
+.of {
+  color: var(--ink-soft);
+}
+.len,
+time {
+  font-variant-numeric: lining-nums tabular-nums;
+  white-space: nowrap;
+}
+
+/* The category mark: a small square of ink beside a name. */
+.mark {
+  flex: none;
+  display: inline-block;
+  width: 0.55rem;
+  height: 0.55rem;
+  margin-right: 0.55rem;
+  background: var(--c);
+  vertical-align: 0.05em;
+}
+.mark.open {
+  background: none;
+  box-shadow: inset 0 0 0 1.5px var(--c);
+}
+
+/* ---------- Track: a session in progress ---------- */
+.now {
+  margin-top: 2.2rem;
+}
+.state {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+/* Running: a filled pip in the category's ink. Paused: the same pip, hollow. */
+.pip {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: var(--c);
+}
+.is-paused .pip {
+  background: none;
+  box-shadow: inset 0 0 0 1.5px var(--c);
+}
+.now h2 {
+  margin-top: 0.5rem;
+  font-size: 2.1rem;
+  font-weight: 400;
+  font-style: italic;
+  line-height: 1.1;
+}
+.sub {
+  margin-top: 0.15rem;
+  color: var(--ink-soft);
+}
+.figure {
+  margin: 1.4rem 0 1.1rem -0.04em;
+  font-size: clamp(5.4rem, 29vw, 8rem);
+  line-height: 0.9;
+  font-weight: 400;
+  letter-spacing: -0.03em;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+.figure.long {
+  font-size: clamp(4rem, 21vw, 6rem);
+}
+.is-paused .figure {
+  color: var(--ink-soft);
+}
+.trace {
+  position: relative;
+  height: 3px;
+  background: var(--c);
+}
+.trace i {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  background: repeating-linear-gradient(135deg, var(--c) 0 1px, var(--paper) 1px 4px);
+  box-shadow: 0 0 0 2px var(--paper);
+}
+.meta {
+  margin-top: 0.7rem;
+  font-size: 0.92rem;
+  color: var(--ink-soft);
+  font-variant-numeric: lining-nums;
+}
+.acts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.7rem;
+  margin-top: 1.8rem;
+}
+/* A plate: a plainly bordered control, set like a label on a spine. */
+.plate {
+  min-height: 3.5rem;
+  border: 1px solid var(--ink);
+  border-radius: 3px;
+  font-size: 1.15rem;
+}
+.plate.full {
+  background: var(--ink);
+  color: var(--paper);
+}
+.plate:active {
+  background: var(--press);
+  color: var(--ink);
+}
+.aside-act {
+  margin-top: 0.9rem;
+  text-align: center;
+}
+.aside-act button {
+  min-height: 2.75rem;
+  padding: 0 1rem;
+  font-size: 0.92rem;
+  font-style: italic;
+  color: var(--ink-soft);
+}
+.discard {
+  padding: 0.8rem 0 0;
+  border-top: 1px solid var(--rule);
+  font-size: 0.92rem;
+  color: var(--ink-soft);
+}
+.discard button {
+  margin-right: 0.3rem;
+  padding: 0.5rem 0;
+  color: var(--ink);
+  border-bottom: 1px solid var(--ink);
+}
+/* Variation 2 sets the running session on the centre line. */
+[data-track='2'] .now {
+  text-align: center;
+}
+[data-track='2'] .state {
+  justify-content: center;
+}
+[data-track='2'] .figure {
+  margin-left: 0;
+}
+
+/* ---------- Track: choosing an activity ---------- */
+.begin {
+  margin-top: 1.8rem;
+}
+.saved {
+  margin-bottom: 1.3rem;
+  font-style: italic;
+  color: var(--ink-soft);
+}
+.rows {
+  margin-top: 0.5rem;
+  border-top: 1px solid var(--ink);
+}
+.rows li {
+  border-bottom: 1px solid var(--rule);
+}
+.row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+  min-height: 5.1rem;
+  padding: 0.6rem 0.2rem 0.6rem 1.15rem;
+  text-align: left;
+}
+.row:active {
+  background: var(--c-tint, var(--press));
+}
+.row.small {
+  min-height: 3.6rem;
+}
+.row.plain {
+  padding-left: 0.2rem;
+}
+/* The margin line of a ledger, in the activity's ink. */
+.edge {
+  position: absolute;
+  left: 0;
+  top: 0.8rem;
+  bottom: 0.8rem;
+  width: 4px;
+  background: var(--c);
+}
+.rt {
+  flex: 1;
+  min-width: 0;
+}
+.nm {
+  display: block;
+  font-size: 1.5rem;
+  line-height: 1.15;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+.row.small .nm {
+  font-size: 1.15rem;
+}
+.row.plain .nm {
+  font-weight: 400;
+  font-style: italic;
+}
+.ctx {
+  display: block;
+  margin-top: 0.1rem;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+  font-variant-numeric: lining-nums;
+}
+.cue {
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+.disclose {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 3.25rem;
+  padding: 0 0.2rem;
+  color: var(--ink-soft);
+  font-style: italic;
+  text-align: left;
+}
+.disclose .n {
+  font-style: normal;
+  font-variant-numeric: lining-nums;
+}
+.disclose .caret {
+  margin-left: auto;
+  font-style: normal;
+  font-size: 1.3rem;
+}
+.disclose + .rows {
+  margin-top: 0;
+  border-top-color: var(--rule);
+}
+
+/* Variation 2: catalogue cards. */
+.cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+  margin-top: 0.6rem;
+}
+.card {
+  position: relative;
+  display: block;
+  width: 100%;
+  min-height: 5.5rem;
+  padding: 1rem 0.9rem 0.8rem;
+  border: 1px solid var(--rule-strong);
+  border-radius: 3px;
+  background: var(--paper-raised);
+  text-align: left;
+}
+.card:active {
+  background: var(--c-tint, var(--press));
+}
+/* An index tab on the card's top edge, in the activity's ink. */
+.tab {
+  position: absolute;
+  top: -1px;
+  left: 0.9rem;
+  width: 1.9rem;
+  height: 4px;
+  background: var(--c);
+}
+.card .nm {
+  font-size: 1.3rem;
+}
+.card.wide {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 3.6rem;
+  margin-top: 0.6rem;
+  padding-top: 0.6rem;
+  padding-bottom: 0.6rem;
+  background: none;
+  border-style: dashed;
+}
+.card.wide .nm {
+  font-size: 1.1rem;
+  font-weight: 400;
+  font-style: italic;
+}
+.scrim {
+  position: fixed;
+  z-index: 20;
+  inset: 0;
+  background: color-mix(in srgb, var(--ink) 35%, transparent);
+}
+.sheet {
+  position: fixed;
+  z-index: 21;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-width: 34rem;
+  max-height: 82dvh;
+  margin: 0 auto;
+  padding: 0.6rem 1.4rem calc(env(safe-area-inset-bottom) + 1.2rem);
+  overflow-y: auto;
+  background: var(--paper-raised);
+  border-top: 1px solid var(--ink);
+  border-radius: 10px 10px 0 0;
+}
+.grip {
+  width: 2.2rem;
+  height: 3px;
+  margin: 0 auto 0.9rem;
+  background: var(--rule-strong);
+}
+.sheet h2 {
+  font-size: 1.5rem;
+  font-weight: 400;
+}
+.sheet h3 {
+  margin-top: 1.1rem;
+  font-size: 0.95rem;
+  font-weight: 400;
+  font-style: italic;
+  color: var(--ink-soft);
+}
+.sheet .rows {
+  margin-top: 0.3rem;
+  border-top-color: var(--rule);
+}
+.sheet .plate {
+  width: 100%;
+  margin-top: 1.2rem;
+}
+[data-sheet='true'] .nav {
+  visibility: hidden;
+}
+
+/* ---------- Today ---------- */
+.today {
+  margin-top: 2.6rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--rule);
+}
+.lede {
+  margin: 0.35rem 0 0.9rem;
+  font-size: 1.2rem;
+  line-height: 1.35;
+}
+.lede strong {
+  font-weight: 600;
+  font-variant-numeric: lining-nums;
+}
+.entries li {
+  display: grid;
+  grid-template-columns: 3.1rem auto 1fr auto;
+  align-items: baseline;
+  padding: 0.6rem 0;
+  border-top: 1px solid var(--rule);
+}
+.entries li:last-child {
+  border-bottom: 1px solid var(--rule);
+}
+.entries time {
+  font-size: 0.88rem;
+  color: var(--ink-soft);
+}
+.entries .body {
+  min-width: 0;
+  padding-right: 0.6rem;
+}
+.entries .live .len {
+  font-style: italic;
+  color: var(--ink-soft);
+}
+.note {
+  display: block;
+  font-size: 0.9rem;
+  font-style: italic;
+  color: var(--ink-soft);
+}
+.quiet,
+.aside,
+figcaption,
+.prose {
+  color: var(--ink-soft);
+}
+.aside,
+figcaption {
+  font-size: 0.9rem;
+  font-style: italic;
+}
+.aside {
+  margin-top: 1.2rem;
+  padding: 0.7rem 0;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+
+/* ---------- Explore ---------- */
+.views {
+  display: flex;
+  gap: 0.7rem;
+  align-items: baseline;
+  color: var(--rule-strong);
+}
+.views button {
+  padding: 0.5rem 0;
+  font-size: 1.1rem;
+  color: var(--ink-soft);
+}
+.views button[aria-current] {
+  color: var(--ink);
+  font-style: italic;
+  border-bottom: 1.5px solid var(--ink);
+}
+/* Three fixed parts, so the date can never push the arrows off the page. */
+.stepper {
+  display: grid;
+  grid-template-columns: 2.75rem minmax(0, 1fr) 2.75rem;
+  align-items: center;
+  margin-top: 1rem;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+.stepper button {
+  height: 2.75rem;
+  font-size: 1.1rem;
+}
+.stepper button:first-child {
+  text-align: left;
+}
+.stepper button:last-child {
+  text-align: right;
+}
+.stepper button:disabled {
+  color: var(--ink-faint);
+}
+.stepper .datepick {
+  justify-content: center;
+  min-height: 2.75rem;
+  font-style: italic;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.stepper + .lede {
+  margin-top: 1rem;
+}
+main > .kicker {
+  margin-top: 2rem;
+}
+figure {
+  margin: 0.6rem 0 0.4rem;
+}
+figcaption {
+  margin-top: 0.4rem;
+}
+
+/* Timeline, to scale. */
+.carry {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0 0.5rem;
+  margin-bottom: 1.1rem;
+  padding: 0.45rem 0.7rem;
+  border-left: 3px solid var(--c);
+  background: var(--c-tint);
+}
+.carry .more {
+  order: 3;
+  flex-basis: 100%;
+}
+.carry .len {
+  margin-left: auto;
+}
+.tl {
+  position: relative;
+  margin-top: 0.6rem;
+}
+.hr {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px solid var(--rule);
+}
+.hr span {
+  position: absolute;
+  top: -0.55em;
+  left: 0;
+  padding-right: 0.5rem;
+  background: var(--paper);
+  font-size: 0.8rem;
+  line-height: 1;
+  color: var(--ink-soft);
+  font-variant-numeric: lining-nums tabular-nums;
+}
+.blk {
+  position: absolute;
+  left: 2.3rem;
+  right: 0;
+  padding: 0.3rem 0.7rem;
+  overflow: hidden;
+  border-left: 3px solid var(--c);
+  background: var(--c-tint);
+  line-height: 1.25;
+}
+.blk .head {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.6rem;
+  white-space: nowrap;
+}
+.blk .lbl {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.more {
+  position: relative;
+  font-size: 0.86rem;
+  font-style: italic;
+  color: var(--ink-soft);
+  font-variant-numeric: lining-nums;
+}
+.blk.one {
+  display: flex;
+  align-items: center;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+.blk.one .head {
+  flex: 1;
+}
+.blk.one .more {
+  display: none;
+}
+/* A pause inside a session: a hatched notch against the margin line. */
+.gap {
+  position: absolute;
+  left: 0;
+  width: 0.55rem;
+  background: repeating-linear-gradient(135deg, var(--c) 0 1px, var(--paper) 1px 4px);
+}
+/* In progress: outlined and dashed, not filled. */
+.blk.live {
+  background: none;
+  border: 1.5px dashed var(--c);
+  border-left: 3px solid var(--c);
+}
+.blk.live .len {
+  font-style: italic;
+  color: var(--ink-soft);
+}
+.nowline {
+  position: absolute;
+  left: 2.3rem;
+  right: 0;
+  border-top: 1px solid var(--ink);
+}
+.nowline span {
+  position: absolute;
+  right: 0;
+  top: 3px;
+  font-size: 0.78rem;
+  font-style: italic;
+  font-variant-numeric: lining-nums;
+}
+
+/* Breakdown lists: the bar is the category's ink on a faint track. */
+.shares {
+  margin-top: 0.6rem;
+}
+.shares li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  column-gap: 1rem;
+  padding: 0.6rem 0 0.7rem;
+  border-top: 1px solid var(--rule);
+}
+.shares li:last-child {
+  border-bottom: 1px solid var(--rule);
+}
+.shares p:first-child {
+  display: flex;
+  align-items: baseline;
+  min-width: 0;
+}
+.pct {
+  display: inline-block;
+  width: 2.6rem;
+  text-align: right;
+  color: var(--ink-soft);
+}
+.track {
+  grid-column: 1 / -1;
+  height: 3px;
+  margin-top: 0.4rem;
+  background: var(--paper-sunk);
+}
+.fill {
+  display: block;
+  height: 100%;
+  background: var(--c);
+}
+
+/* Drawings */
+svg text {
+  fill: var(--chart-axis);
+  font-family: var(--serif);
+  font-size: 10px;
+  font-variant-numeric: lining-nums;
+}
+svg .val {
+  fill: var(--ink);
+}
+svg .strong {
+  font-weight: 600;
+}
+svg .base,
+svg .gridl {
+  stroke: var(--chart-grid);
+  stroke-width: 1;
+}
+svg .c1,
+svg .c2,
+svg .c3,
+svg .c4,
+svg .c5 {
+  fill: var(--c);
+}
+svg .live {
+  fill: none;
+  stroke: var(--c);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 2;
+}
+svg .total {
+  fill: var(--chart-total);
+}
+svg .hit {
+  fill: transparent;
+}
+svg .col {
+  cursor: pointer;
+}
+svg .line {
+  fill: none;
+  stroke: var(--chart-total);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+svg .dot {
+  fill: var(--chart-total);
+  stroke: var(--chart-gap);
+  stroke-width: 2;
+}
+svg .dot.open {
+  fill: var(--paper);
+  stroke: var(--chart-total);
+  stroke-width: 1.5;
+}
+.chart,
+.ribbon {
+  width: 100%;
+}
+.ribbon {
+  margin-bottom: 0.9rem;
+}
+.tip {
+  padding: 0.3rem 0.55rem;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--serif);
+  font-size: 0.85rem;
+  font-variant-numeric: lining-nums;
+}
+
+/* ---------- Settings ---------- */
+.plain li {
+  border-top: 1px solid var(--rule);
+}
+.plain li:last-child {
+  border-bottom: 1px solid var(--rule);
+}
+.plain button {
+  display: flex;
+  align-items: baseline;
+  width: 100%;
+  min-height: 2.9rem;
+  padding: 0.6rem 0;
+  text-align: left;
+}
+.plain button:active {
+  background: var(--select);
+}
+.go {
+  margin-left: auto;
+  padding-left: 1rem;
+  font-size: 0.9rem;
+  font-style: italic;
+  color: var(--ink-soft);
+}
+.link {
+  border-bottom: 0;
+  font-style: italic;
+}
+.group {
+  margin: 1.1rem 0 0.3rem;
+  font-size: 0.95rem;
+  font-weight: 400;
+  font-style: italic;
+  color: var(--ink-soft);
+}
+.plain + .plain {
+  margin-top: -1px;
+}
+.kicker + .group {
+  margin-top: 0.5rem;
+}
+.prose {
+  margin: 0.4rem 0 0.8rem;
+}
+.facts {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  margin-top: 0.4rem;
+}
+.facts dt,
+.facts dd {
+  padding: 0.6rem 0;
+  border-top: 1px solid var(--rule);
+}
+.facts dd {
+  color: var(--ink-soft);
+  text-align: right;
+}
+
+/* ---------- Navigation ---------- */
+.nav {
+  position: fixed;
+  z-index: 10;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+}
+.nav button {
+  position: relative;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.nav button[aria-current] {
+  color: var(--ink);
+}
+
+/*
+ * Glass: a small pane resting on the page. Paper shows through, softened.
+ * One backdrop effect and one sliding marker; nothing else is animated.
+ */
+.nav[data-style='glass'] {
+  left: 50%;
+  bottom: calc(env(safe-area-inset-bottom) + 0.7rem);
+  width: min(19.5rem, calc(100% - 2rem));
+  height: 3.25rem;
+  padding: 4px;
+  transform: translateX(-50%);
+  border-radius: 1.7rem;
+  background: var(--glass-fill);
+  -webkit-backdrop-filter: blur(18px) saturate(1.5);
+  backdrop-filter: blur(18px) saturate(1.5);
+  box-shadow:
+    inset 0 0 0 1px var(--glass-edge),
+    inset 0 1px 0 var(--glass-shine),
+    0 10px 24px -14px var(--glass-drop);
+}
+.nav[data-style='glass'] .thumb {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: calc((100% - 8px) / 3);
+  border-radius: 1.5rem;
+  background: var(--glass-thumb);
+  box-shadow: inset 0 0 0 1px var(--glass-edge);
+  transform: translateX(calc(var(--i, 0) * 100%));
+  transition: transform 0.34s cubic-bezier(0.3, 1.25, 0.5, 1);
+}
+/* No backdrop support: nearly opaque, so labels never sit on busy text. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .nav[data-style='glass'] {
+    background: color-mix(in srgb, var(--paper-raised) 95%, transparent);
+  }
+}
+/* The user has asked for less transparency: a solid pane, same shape. */
+@media (prefers-reduced-transparency: reduce) {
+  .nav[data-style='glass'] {
+    background: var(--paper-raised);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+@media (prefers-contrast: more) {
+  .nav[data-style='glass'] {
+    background: var(--paper-raised);
+    box-shadow: inset 0 0 0 1.5px var(--ink);
+  }
+}
+
+/* Rule: opaque paper, a hairline, and a short stroke of ink over the current word. */
+.nav[data-style='rule'] {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 0 max(1rem, calc(50% - 15rem)) env(safe-area-inset-bottom);
+  background: var(--paper);
+  border-top: 1px solid var(--rule);
+}
+.nav[data-style='rule'] button {
+  min-height: 3.1rem;
+}
+.nav[data-style='rule'] .thumb {
+  display: none;
+}
+.nav[data-style='rule'] button[aria-current]::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: calc(50% - 1.1rem);
+  width: 2.2rem;
+  height: 2px;
+  background: var(--ink);
+}
+
+@media (min-width: 760px) {
+  body {
+    font-size: 18px;
+  }
+}

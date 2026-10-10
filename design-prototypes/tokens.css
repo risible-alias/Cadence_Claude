@@ -1,0 +1,136 @@
+/*
+ * Cadence design tokens (proposal). Paper-and-ink foundation with five
+ * fountain-pen inks for categories.
+ *
+ * Rules the tokens encode:
+ *   1. Colour means category, everywhere and only that. The same ink marks a
+ *      category in lists, the timeline and every chart.
+ *   2. Status (running, paused, completed) is carried by shape, line style and
+ *      words, never by colour alone.
+ *   3. Totals that span categories are drawn in neutral ink.
+ *   4. Text is always paper/ink tones. A coloured mark sits beside it.
+ *
+ * `.theme-light` / `.theme-dark` force a mode on a subtree (used by the
+ * specimen page); otherwise the device setting decides.
+ */
+:root,
+.theme-light {
+  color-scheme: light;
+
+  /* Foundation */
+  --paper: #f6f1e7; /* page */
+  --paper-raised: #fbf8f1; /* panels, sheets, the glass bar's base */
+  --paper-sunk: #ede6d8; /* wells, pressed states */
+  --ink: #26221c; /* primary text, rules of emphasis */
+  --ink-soft: #6b6356; /* secondary text */
+  --ink-faint: #a0967f; /* disabled, placeholder marks; never body text */
+  --rule: #d8cfbd; /* hairline separators */
+  --rule-strong: #b9ae98; /* panel edges, controls */
+
+  /* Category inks, in fixed order. A category keeps its ink for life. */
+  --cat-lapis: #2c56ad;
+  --cat-oxblood: #a33a25;
+  --cat-plum: #8e3f92;
+  --cat-forest: #08775a;
+  --cat-brass: #b3811a;
+
+  /* Glass navigation */
+  --glass-shine: rgb(255 255 255 / 0.55);
+  --glass-drop: rgb(60 45 20 / 0.28);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --paper: #1b1917;
+    --paper-raised: #24211d;
+    --paper-sunk: #141210;
+    --ink: #ece5d8;
+    --ink-soft: #a69d8d;
+    --ink-faint: #6f6759;
+    --rule: #37322b;
+    --rule-strong: #554d42;
+    --cat-lapis: #5f8ae0;
+    --cat-oxblood: #dc5f5f;
+    --cat-plum: #ad6cba;
+    --cat-forest: #2a9d80;
+    --cat-brass: #b08f24;
+    --glass-shine: rgb(255 255 255 / 0.08);
+    --glass-drop: rgb(0 0 0 / 0.6);
+  }
+}
+.theme-dark {
+  color-scheme: dark;
+  --paper: #1b1917;
+  --paper-raised: #24211d;
+  --paper-sunk: #141210;
+  --ink: #ece5d8;
+  --ink-soft: #a69d8d;
+  --ink-faint: #6f6759;
+  --rule: #37322b;
+  --rule-strong: #554d42;
+  --cat-lapis: #5f8ae0;
+  --cat-oxblood: #dc5f5f;
+  --cat-plum: #ad6cba;
+  --cat-forest: #2a9d80;
+  --cat-brass: #b08f24;
+  --glass-shine: rgb(255 255 255 / 0.08);
+  --glass-drop: rgb(0 0 0 / 0.6);
+}
+
+/* Derived tokens: computed from the foundation so both modes stay in step. */
+:root,
+.theme-light,
+.theme-dark {
+  /* Category tints: block fills in the timeline, selected rows. */
+  --tint-lapis: color-mix(in srgb, var(--cat-lapis) 14%, var(--paper));
+  --tint-oxblood: color-mix(in srgb, var(--cat-oxblood) 14%, var(--paper));
+  --tint-plum: color-mix(in srgb, var(--cat-plum) 14%, var(--paper));
+  --tint-forest: color-mix(in srgb, var(--cat-forest) 14%, var(--paper));
+  --tint-brass: color-mix(in srgb, var(--cat-brass) 16%, var(--paper));
+
+  /* Interaction */
+  --select: color-mix(in srgb, var(--ink) 7%, var(--paper)); /* chosen row, current tab */
+  --press: color-mix(in srgb, var(--ink) 13%, var(--paper)); /* finger down */
+  --focus: var(--cat-brass); /* keyboard focus: the one brass detail */
+
+  /* Status. Shape and wording do the work; these only set weight. */
+  --status-running: var(--ink); /* filled pip, solid line */
+  --status-paused: var(--ink-soft); /* hollow pip, hatched line */
+  --status-done: var(--ink-soft); /* no mark */
+
+  /* Charts and the timeline */
+  --chart-total: var(--ink); /* bars that sum across categories */
+  --chart-axis: var(--ink-soft); /* labels */
+  --chart-grid: var(--rule); /* gridlines, baselines */
+  --chart-gap: var(--paper); /* 2px separation between touching marks */
+
+  /* Glass navigation */
+  --glass-fill: color-mix(in srgb, var(--paper-raised) 80%, transparent);
+  --glass-edge: color-mix(in srgb, var(--ink) 14%, transparent);
+  --glass-thumb: color-mix(in srgb, var(--ink) 9%, transparent);
+
+  /* Type */
+  --serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', ui-serif, Georgia, serif;
+}
+
+/* Category slots. `--c` is the ink, `--c-tint` its wash. */
+.c1 {
+  --c: var(--cat-lapis);
+  --c-tint: var(--tint-lapis);
+}
+.c2 {
+  --c: var(--cat-oxblood);
+  --c-tint: var(--tint-oxblood);
+}
+.c3 {
+  --c: var(--cat-plum);
+  --c-tint: var(--tint-plum);
+}
+.c4 {
+  --c: var(--cat-forest);
+  --c-tint: var(--tint-forest);
+}
+.c5 {
+  --c: var(--cat-brass);
+  --c-tint: var(--tint-brass);
+}

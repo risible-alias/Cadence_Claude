@@ -1,0 +1,289 @@
+/* Palette specimen. Light and dark sheets side by side when there is room. */
+body {
+  background: #8f887a;
+  font-family: var(--serif);
+  font-size: 16px;
+  line-height: 1.4;
+  font-variant-numeric: lining-nums;
+}
+.intro,
+.sheet {
+  background: var(--paper);
+  color: var(--ink);
+  padding: 1.6rem max(1.3rem, env(safe-area-inset-left)) 2rem;
+}
+.intro {
+  padding-top: calc(env(safe-area-inset-top) + 1.6rem);
+  border-bottom: 1px solid var(--ink);
+}
+.intro > * {
+  max-width: 40rem;
+}
+a {
+  color: inherit;
+}
+.kicker {
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+h1 {
+  margin: 0.2rem 0 0.6rem;
+  font-size: 1.9rem;
+  font-weight: 400;
+  line-height: 1.15;
+}
+h2 {
+  font-size: 1.6rem;
+  font-weight: 400;
+  font-style: italic;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--ink);
+}
+h3 {
+  margin: 1.8rem 0 0.2rem;
+  font-size: 0.72rem;
+  font-weight: 400;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+code {
+  font: 0.78rem ui-monospace, Menlo, monospace;
+}
+.cap,
+.intro p {
+  color: var(--ink-soft);
+}
+.cap {
+  font-size: 0.9rem;
+  font-style: italic;
+}
+.rules {
+  margin-top: 1rem;
+  counter-reset: r;
+}
+.rules li {
+  counter-increment: r;
+  padding: 0.5rem 0 0.5rem 1.8rem;
+  border-top: 1px solid var(--rule);
+  text-indent: -1.8rem;
+}
+.rules li::before {
+  content: counter(r) '.';
+  display: inline-block;
+  width: 1.8rem;
+  text-indent: 0;
+  color: var(--ink-soft);
+}
+#sheets {
+  display: grid;
+}
+@media (min-width: 820px) {
+  #sheets {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.chips li,
+.inks li,
+.status li {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.55rem 0;
+  border-top: 1px solid var(--rule);
+}
+.chips,
+.inks,
+.status {
+  margin-top: 0.5rem;
+  border-bottom: 1px solid var(--rule);
+}
+.chip {
+  flex: none;
+  width: 2.2rem;
+  height: 2.2rem;
+  box-shadow: inset 0 0 0 1px var(--rule-strong);
+}
+.chip.big {
+  width: 2.6rem;
+  height: 2.6rem;
+  box-shadow: none;
+}
+.chip.wash {
+  margin-left: -0.8rem;
+}
+.chip.focusdemo {
+  box-shadow: none;
+  outline: 2px solid var(--focus);
+  outline-offset: -4px;
+}
+.t {
+  flex: 1;
+  min-width: 0;
+}
+.t strong,
+.t span,
+.v code,
+.v span {
+  display: block;
+}
+.t strong {
+  font-weight: 600;
+}
+.t span,
+.v span {
+  font-size: 0.86rem;
+  color: var(--ink-soft);
+}
+.t b {
+  font-weight: 600;
+  color: var(--ink);
+}
+.v {
+  text-align: right;
+  white-space: nowrap;
+}
+.mark {
+  flex: none;
+  display: inline-block;
+  width: 0.55rem;
+  height: 0.55rem;
+  margin-right: 0.45rem;
+  background: var(--c);
+}
+.status .mark,
+.pip {
+  flex: none;
+  width: 0.7rem;
+  height: 0.7rem;
+  margin: 0 0.75rem;
+  background: var(--c);
+}
+.pip {
+  border-radius: 50%;
+}
+.hollow {
+  background: none !important;
+  box-shadow: inset 0 0 0 1.5px var(--c);
+}
+.trace {
+  flex: none;
+  width: 5rem;
+  height: 3px;
+  background: var(--c);
+}
+.trace.hatch {
+  height: 7px;
+  background: repeating-linear-gradient(135deg, var(--c) 0 1px, var(--paper) 1px 4px);
+}
+.blk {
+  flex: none;
+  width: 5rem;
+  padding: 0.25rem 0.5rem;
+  border-left: 3px solid var(--c);
+  background: var(--c-tint);
+  font-size: 0.86rem;
+  text-align: right;
+}
+.blk.dashed {
+  background: none;
+  border: 1.5px dashed var(--c);
+  border-left: 3px solid var(--c);
+  font-style: italic;
+}
+.demo {
+  width: 100%;
+  margin-top: 0.6rem;
+}
+.demo line {
+  stroke: var(--chart-grid);
+}
+.demo .c1,
+.demo .c2,
+.demo .c3,
+.demo .c4 {
+  fill: var(--c);
+}
+.demo .total {
+  fill: var(--chart-total);
+}
+.tl {
+  display: grid;
+  gap: 2px;
+  margin-top: 0.8rem;
+}
+.tl .blk {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  width: auto;
+  padding: 0.45rem 0.7rem;
+  font-size: 1rem;
+  text-align: left;
+  color: var(--ink-soft);
+}
+.tl .blk b {
+  margin-right: 0.3em;
+  font-weight: 600;
+  color: var(--ink);
+}
+.tl .blk span {
+  margin-left: auto;
+  color: var(--ink);
+}
+.glassdemo {
+  position: relative;
+  margin-top: 0.6rem;
+  padding: 0.6rem 0 0.2rem;
+  font-size: 1.15rem;
+  line-height: 1.3;
+}
+.pane {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  align-items: center;
+  width: min(19rem, 100%);
+  height: 3.25rem;
+  margin: -1.6rem auto 0;
+  padding: 4px;
+  border-radius: 1.7rem;
+  background: var(--glass-fill);
+  -webkit-backdrop-filter: blur(18px) saturate(1.5);
+  backdrop-filter: blur(18px) saturate(1.5);
+  box-shadow:
+    inset 0 0 0 1px var(--glass-edge),
+    inset 0 1px 0 var(--glass-shine),
+    0 10px 24px -14px var(--glass-drop);
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  text-align: center;
+  color: var(--ink-soft);
+}
+.pane span {
+  position: relative;
+}
+.pane .thumb {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: calc((100% - 8px) / 3);
+  border-radius: 1.5rem;
+  background: var(--glass-thumb);
+  box-shadow: inset 0 0 0 1px var(--glass-edge);
+}
+.pane .thumb + span {
+  color: var(--ink);
+}
+@media (prefers-reduced-transparency: reduce) {
+  .pane {
+    background: var(--paper-raised);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
