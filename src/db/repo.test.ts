@@ -1,6 +1,8 @@
 import 'fake-indexeddb/auto'
+import Dexie from 'dexie'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { validateBackup } from '../domain/backup'
+import { INKS, resolveInk } from '../domain/inks'
 import { sessionTimes } from '../domain/sessions'
 import { activeOverlapMs, localDayWindow, sessionActiveMs } from '../domain/time'
 import { ACTIVE_SLOT, CadenceDb, type StoredActiveSession } from './db'
@@ -14,11 +16,14 @@ import {
   finishActiveSession,
   getActiveSession,
   pauseActiveSession,
+  recentSessions,
   renameCategory,
   replaceAllData,
   resumeActiveSession,
   restoreCategory,
   sessionsOverlapping,
+  setActiveTitle,
+  setCategoryInk,
   startActiveSession,
   storedCounts,
   updateReflection,
@@ -26,6 +31,7 @@ import {
 } from './repo'
 
 const MIN = 60_000
+const HOUR_MS = 60 * MIN
 const T0 = Date.parse('2026-01-10T09:00:00Z')
 
 let dbName: string
@@ -391,5 +397,177 @@ describe('optional reflections', () => {
     await updateReflection(db, session.id, { concentration: null, fatigue: 6, notes: 'ok' }, NOW)
     const parsed = validateBackup(JSON.parse(JSON.stringify(await exportBackup(db, NOW))), NOW)
     expect(parsed.ok && parsed.backup.sessions[0]).toMatchObject({ concentration: null, fatigue: 6, notes: 'ok' })
+  })
+})
+
+describe('category inks', () => {
+  const inkOf = async (id: string) => resolveInk(id, await db.categories.toArray())
+
+  it('gives each new group the next unused ink and lets sub-categories inherit', async () => {
+    const music = await createCategory(db, { name: 'Music', parentId: null }, T0)
+    const violin = await createCategory(db, { name: 'Violin', parentId: music.id }, T0)
+    const reading = await createCategory(db, { name: 'Reading', parentId: null }, T0)
+    expect(music.color).toBe('lapis')
+    expect(violin.color).toBeNull()
+    expect(reading.color).toBe('oxblood')
+    expect(await inkOf(violin.id)).toBe('lapis')
+  })
+
+  it('allows more groups than inks by reusing them', async () => {
+    const colors: Array<string | null> = []
+    for (let i = 0; i < INKS.length + 3; i++) {
+      colors.push((await createCategory(db, { name: `Group ${i}`, parentId: null }, T0 + i)).color)
+    }
+    expect(colors.slice(0, INKS.length)).toEqual(INKS.map((i) => i.id))
+    expect(colors.slice(INKS.length)).toEqual(['lapis', 'oxblood', 'plum'])
+  })
+
+  it('changes one ink without disturbing any other category', async () => {
+    const music = await createCategory(db, { name: 'Music', parentId: null }, T0)
+    const violin = await createCategory(db, { name: 'Violin', parentId: music.id }, T0)
+    const piano = await createCategory(db, { name: 'Piano', parentId: music.id }, T0)
+    const reading = await createCategory(db, { name: 'Reading', parentId: null }, T0)
+
+    await setCategoryInk(db, music.id, 'forest', T0 + MIN)
+    expect(await inkOf(violin.id)).toBe('forest')
+    expect(await inkOf(reading.id)).toBe('oxblood')
+
+    await setCategoryInk(db, piano.id, 'brass', T0 + MIN)
+    expect(await inkOf(piano.id)).toBe('brass')
+    expect(await inkOf(violin.id)).toBe('forest')
+    await setCategoryInk(db, piano.id, null, T0 + 2 * MIN)
+    expect(await inkOf(piano.id)).toBe('forest')
+  })
+
+  it('rejects unknown inks and clearing a group’s ink', async () => {
+    const music = await createCategory(db, { name: 'Music', parentId: null }, T0)
+    await expect(setCategoryInk(db, music.id, 'teal', T0)).rejects.toThrow(/available inks/)
+    await expect(setCategoryInk(db, music.id, null, T0)).rejects.toThrow(/Choose an ink/)
+    await expect(setCategoryInk(db, 'missing', 'plum', T0)).rejects.toThrow(/no longer exists/)
+    expect((await db.categories.get(music.id))?.color).toBe('lapis')
+  })
+
+  it('keeps inks stable when other categories are archived, restored or added', async () => {
+    const a = await createCategory(db, { name: 'A', parentId: null }, T0)
+    const b = await createCategory(db, { name: 'B', parentId: null }, T0 + 1)
+    const c = await createCategory(db, { name: 'C', parentId: null }, T0 + 2)
+    await archiveCategory(db, a.id, T0 + MIN)
+    const d = await createCategory(db, { name: 'D', parentId: null }, T0 + 2 * MIN)
+    await restoreCategory(db, a.id, T0 + 3 * MIN)
+    const stored = await db.categories.toArray()
+    const color = (id: string) => stored.find((x) => x.id === id)?.color
+    expect([color(a.id), color(b.id), color(c.id)]).toEqual(['lapis', 'oxblood', 'plum'])
+    // The archived group's ink was free to reuse; restoring it does not take it back.
+    expect(d.color).toBe('lapis')
+  })
+
+  it('sharing an ink does not merge sessions or history', async () => {
+    const one = await createCategory(db, { name: 'One', parentId: null }, T0)
+    const two = await createCategory(db, { name: 'Two', parentId: null }, T0)
+    await setCategoryInk(db, two.id, one.color, T0)
+    await startActiveSession(db, { categoryId: one.id }, T0)
+    await finishActiveSession(db, T0 + 10 * MIN)
+    await startActiveSession(db, { categoryId: two.id }, T0 + 20 * MIN)
+    await finishActiveSession(db, T0 + 50 * MIN)
+    const sessions = await db.sessions.toArray()
+    expect(sessions.map((s) => s.categoryId).sort()).toEqual([one.id, two.id].sort())
+  })
+})
+
+describe('upgrading stored data from before inks', () => {
+  it('assigns inks on upgrade and leaves sessions and the active timer intact', async () => {
+    const name = `${dbName}-legacy`
+    const legacy = new Dexie(name)
+    legacy.version(1).stores({ categories: 'id, parentId', sessions: 'id, startedAt, endedAt, categoryId', activeSession: 'slot' })
+    const base = { color: null, archivedAt: null, updatedAt: '2026-01-01T00:00:00.000Z' }
+    await legacy.table('categories').bulkAdd([
+      { ...base, id: 'c2', name: 'Music', parentId: null, createdAt: '2026-01-02T00:00:00.000Z' },
+      { ...base, id: 'c1', name: 'Academics', parentId: null, createdAt: '2026-01-01T00:00:00.000Z' },
+      { ...base, id: 'c3', name: 'Violin', parentId: 'c2', createdAt: '2026-01-03T00:00:00.000Z' },
+    ])
+    const session = {
+      id: 's1', categoryId: 'c3', title: 'Scales', startedAt: '2026-01-10T09:00:00.000Z', endedAt: '2026-01-10T10:00:00.000Z',
+      pausedIntervals: [{ startedAt: '2026-01-10T09:10:00.000Z', endedAt: '2026-01-10T09:20:00.000Z' }],
+      notes: 'ok', concentration: 7, fatigue: null, createdAt: '2026-01-10T10:00:00.000Z', updatedAt: '2026-01-10T10:00:00.000Z',
+    }
+    await legacy.table('sessions').add(session)
+    const active = {
+      slot: 'current', id: 'a1', categoryId: 'c1', title: null, startedAt: '2026-01-12T11:00:00.000Z', pausedIntervals: [],
+      state: 'paused', pauseStartedAt: '2026-01-12T11:30:00.000Z', updatedAt: '2026-01-12T11:30:00.000Z',
+    }
+    await legacy.table('activeSession').add(active)
+    legacy.close()
+
+    const upgraded = new CadenceDb(name)
+    const categories = await upgraded.categories.toArray()
+    const color = (id: string) => categories.find((c) => c.id === id)?.color
+    expect([color('c1'), color('c2'), color('c3')]).toEqual(['lapis', 'oxblood', null])
+    expect(resolveInk('c3', categories)).toBe('oxblood')
+    expect(await upgraded.sessions.get('s1')).toEqual(session)
+    expect(await getActiveSession(upgraded)).toMatchObject({ id: 'a1', state: 'paused', categoryId: 'c1' })
+    expect(sessionActiveMs((await upgraded.sessions.get('s1'))!)).toBe(50 * MIN)
+    upgraded.close()
+
+    // Opening again must not reassign anything.
+    const again = new CadenceDb(name)
+    expect((await again.categories.toArray()).map((c) => c.color).sort()).toEqual(categories.map((c) => c.color).sort())
+  })
+
+  it('restores a backup made before inks, assigning them and keeping every session', async () => {
+    const parent = await createCategory(db, { name: 'Academics', parentId: null }, T0)
+    await createCategory(db, { name: 'Music', parentId: null }, T0 + 1)
+    await startActiveSession(db, { categoryId: parent.id }, T0)
+    await finishActiveSession(db, T0 + 30 * MIN)
+    const exported = await exportBackup(db, T0 + HOUR_MS)
+    // What an older version would have written: every colour null.
+    const old = { ...exported, categories: exported.categories.map((c) => ({ ...c, color: null })) }
+    const parsed = validateBackup(JSON.parse(JSON.stringify(old)), T0 + HOUR_MS)
+    expect(parsed.ok).toBe(true)
+    if (!parsed.ok) return
+
+    const fresh = new CadenceDb(`${dbName}-fresh`)
+    await replaceAllData(fresh, parsed.backup)
+    expect((await fresh.categories.orderBy('id').toArray()).every((c) => c.color !== null)).toBe(true)
+    expect((await fresh.categories.toArray()).map((c) => c.color).sort()).toEqual(['lapis', 'oxblood'])
+    expect(await fresh.sessions.toArray()).toEqual(exported.sessions)
+  })
+
+  it('keeps assigned inks through a backup round trip', async () => {
+    const music = await createCategory(db, { name: 'Music', parentId: null }, T0)
+    const violin = await createCategory(db, { name: 'Violin', parentId: music.id }, T0)
+    await setCategoryInk(db, music.id, 'brass', T0)
+    await setCategoryInk(db, violin.id, 'plum', T0)
+    const parsed = validateBackup(JSON.parse(JSON.stringify(await exportBackup(db, T0 + HOUR_MS))), T0 + HOUR_MS)
+    if (!parsed.ok) throw new Error(parsed.errors.join(' '))
+    const fresh = new CadenceDb(`${dbName}-fresh`)
+    await replaceAllData(fresh, parsed.backup)
+    const stored = await fresh.categories.toArray()
+    expect(stored.find((c) => c.id === music.id)?.color).toBe('brass')
+    expect(stored.find((c) => c.id === violin.id)?.color).toBe('plum')
+  })
+})
+
+describe('title and recent use', () => {
+  it('changes the title of the session in progress and saves it on finish', async () => {
+    const id = (await createCategory(db, { name: 'Violin', parentId: null }, T0)).id
+    await expect(setActiveTitle(db, 'x', T0)).rejects.toThrow(/no active session/)
+    await startActiveSession(db, { categoryId: id }, T0)
+    await setActiveTitle(db, ' Bach, Partita 2 ', T0 + MIN)
+    expect((await getActiveSession(db))?.title).toBe('Bach, Partita 2')
+    const session = await finishActiveSession(db, T0 + 10 * MIN)
+    expect(session.title).toBe('Bach, Partita 2')
+    expect(sessionActiveMs(session)).toBe(10 * MIN)
+  })
+
+  it('lists the latest sessions newest first', async () => {
+    const id = (await createCategory(db, { name: 'Violin', parentId: null }, T0)).id
+    for (let i = 0; i < 5; i++) {
+      await startActiveSession(db, { categoryId: id }, T0 + i * 60 * MIN)
+      await finishActiveSession(db, T0 + i * 60 * MIN + 10 * MIN)
+    }
+    const recent = await recentSessions(db, 3)
+    expect(recent).toHaveLength(3)
+    expect(recent.map((s) => s.endedAt)).toEqual(recent.map((s) => s.endedAt).slice().sort().reverse())
+    expect(recent[0]?.startedAt).toBe(new Date(T0 + 4 * 60 * MIN).toISOString())
   })
 })

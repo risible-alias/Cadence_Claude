@@ -1,11 +1,10 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { useAction } from '../../app/hooks'
-import { Button } from '../../components/Button'
-import { errorClass, inputClass, labelClass, selectClass } from '../../components/fields'
+import { Sheet } from '../../components/Sheet'
 import { db } from '../../db/db'
 import { addManualSession, deleteSession, getActiveSession, sessionsOverlapping, updateSession } from '../../db/repo'
-import { categoryPath, categoryTree } from '../../domain/categories'
+import { categoryLabel, categoryTree } from '../../domain/categories'
 import {
   draftProblems,
   findActiveOverlaps,
@@ -15,7 +14,7 @@ import {
   splitByLocalDay,
   type SessionDraft,
 } from '../../domain/sessions'
-import { formatDuration, parseLocalInput, toIso, toLocalInputValue, toMs } from '../../domain/time'
+import { formatMinutes, parseLocalInput, toIso, toLocalInputValue, toMs } from '../../domain/time'
 import { finishSession } from '../../domain/timer'
 import type { Category, Session } from '../../domain/types'
 import {
@@ -63,15 +62,6 @@ export function SessionDialog({
   const [reflection, setReflection] = useState(editing ? reflectionFormOf(editing) : emptyReflectionForm)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const { busy, error, run } = useAction()
-
-  const ref = useRef<HTMLDialogElement>(null)
-  useEffect(() => {
-    const dialog = ref.current
-    if (!dialog || dialog.open) return
-    // Safari before 15.4 has no modal dialogs; show it in the page flow instead.
-    if (typeof dialog.showModal === 'function') dialog.showModal()
-    else dialog.setAttribute('open', '')
-  }, [])
 
   // The inputs work in whole minutes. A field the user has not touched keeps
   // the stored instant exactly, so editing only the category never shifts times.
@@ -135,128 +125,87 @@ export function SessionDialog({
     })
 
   return (
-    <dialog
-      ref={ref}
-      onClose={onClose}
-      aria-labelledby="session-dialog-heading"
-      className="m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg overflow-y-auto rounded-2xl bg-white p-4 text-slate-900 shadow-xl backdrop:bg-slate-900/50 sm:p-6 dark:bg-slate-900 dark:text-slate-100"
-    >
+    <Sheet title={editing ? 'Edit session' : 'Add a past session'} onClose={onClose}>
       <form
-        className="grid gap-3"
         onSubmit={(e) => {
           e.preventDefault()
           void save()
         }}
       >
-        <h2 id="session-dialog-heading" className="text-lg font-semibold">
-          {editing ? 'Edit session' : 'Add a past session'}
-        </h2>
-
-        <div>
-          <label htmlFor="edit-category" className={labelClass}>
-            Category
-          </label>
-          <select
-            id="edit-category"
-            className={selectClass}
-            value={categoryId}
-            onChange={(e) => setCategoryId(e.target.value)}
-          >
-            {!editing && <option value="">Choose a category…</option>}
-            {keptArchived && <option value={keptArchived}>{categoryPath(keptArchived, categories)} (archived)</option>}
+        <label className="field">
+          <span>Activity</span>
+          <select className="input" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
+            {!editing && <option value="">Choose an activity…</option>}
+            {keptArchived && <option value={keptArchived}>{categoryLabel(keptArchived, categories)} (archived)</option>}
             {tree.flatMap(({ category, children }) => [
               <option key={category.id} value={category.id}>
                 {category.name}
               </option>,
               ...children.map((child) => (
                 <option key={child.id} value={child.id}>
-                  {category.name} → {child.name}
+                  {child.name} — {category.name}
                 </option>
               )),
             ])}
           </select>
-        </div>
+        </label>
 
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div>
-            <label htmlFor="edit-start" className={labelClass}>
-              Start
-            </label>
+        <div className="twoup">
+          <label className="field">
+            <span>Start</span>
             <input
-              id="edit-start"
               type="datetime-local"
-              className={inputClass}
+              className="input"
               value={startValue}
               onChange={(e) => setStartValue(e.target.value)}
               required
             />
-          </div>
-          <div>
-            <label htmlFor="edit-end" className={labelClass}>
-              End
-            </label>
+          </label>
+          <label className="field">
+            <span>End</span>
             <input
-              id="edit-end"
               type="datetime-local"
-              className={inputClass}
+              className="input"
               value={endValue}
               onChange={(e) => setEndValue(e.target.value)}
               required
             />
-          </div>
+          </label>
         </div>
 
-        <div>
-          <label htmlFor="edit-title" className={labelClass}>
-            Title <span className="font-normal">(optional)</span>
-          </label>
+        <label className="field">
+          <span>
+            Title <small>(optional)</small>
+          </span>
           <input
-            id="edit-title"
-            className={inputClass}
+            className="input"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             maxLength={MAX_TITLE_LENGTH}
             autoComplete="off"
           />
-        </div>
+        </label>
 
         {editing && originalPausedMs > 0 && (
-          <label className="flex min-h-11 items-center gap-3 text-base">
-            <input
-              type="checkbox"
-              className="size-5"
-              checked={dropPauses}
-              onChange={(e) => setDropPauses(e.target.checked)}
-            />
-            Remove recorded pauses ({formatDuration(originalPausedMs)}) and count the whole span as active
+          <label className="check">
+            <input type="checkbox" checked={dropPauses} onChange={(e) => setDropPauses(e.target.checked)} />
+            <span>Remove recorded pauses ({formatMinutes(originalPausedMs)}) and count the whole span as active</span>
           </label>
         )}
 
-        <details
-          className="rounded-lg border border-slate-200 px-3 dark:border-slate-700"
-          open={editing !== null && isAnswered(reflectionFormOf(editing)) ? true : undefined}
-        >
-          <summary className="min-h-11 cursor-pointer content-center text-base font-medium">
-            Reflection (optional){isAnswered(reflection) ? '' : ' · not answered'}
-          </summary>
-          <div className="pb-3">
-            <ReflectionFields idPrefix="edit" value={reflection} onChange={setReflection} />
-          </div>
-        </details>
-
         {times && (
-          <div className="rounded-lg bg-slate-100 px-3 py-2 text-sm dark:bg-slate-800" data-testid="session-preview">
+          <div className="preview" data-testid="session-preview">
             <p>
-              <strong className="font-semibold">Active {formatDuration(times.activeMs)}</strong>
+              <strong>Active {formatMinutes(times.activeMs)}</strong>
               {times.pausedMs > 0
-                ? ` = ${formatDuration(times.elapsedMs)} elapsed − ${formatDuration(times.pausedMs)} paused`
+                ? `, from ${formatMinutes(times.elapsedMs)} elapsed less ${formatMinutes(times.pausedMs)} paused`
                 : ' (no pauses, so the same as elapsed)'}
             </p>
             {pausesTrimmed && <p>Pauses outside the new times are trimmed to fit.</p>}
             {days.length > 1 && (
               <p>
                 Crosses midnight:{' '}
-                {days.map((d) => `${formatDuration(d.activeMs)} on ${dayLabel.format(d.dayStartMs)}`).join(', ')}.
+                {days.map((d) => `${formatMinutes(d.activeMs)} on ${dayLabel.format(d.dayStartMs)}`).join(', ')}.
               </p>
             )}
             {times.elapsedMs > DAY_MS && <p>This is longer than 24 hours. Check the dates.</p>}
@@ -264,28 +213,28 @@ export function SessionDialog({
         )}
 
         {shownProblems.length > 0 && (
-          <ul role="alert" className={errorClass}>
-            {shownProblems.map((p) => (
-              <li key={p}>{p}</li>
-            ))}
-          </ul>
+          <div role="alert" className="alert">
+            <ul>
+              {shownProblems.map((p) => (
+                <li key={p}>{p}</li>
+              ))}
+            </ul>
+          </div>
         )}
 
         {problems.length === 0 && overlaps.length > 0 && (
-          <div
-            role="status"
-            className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-100"
-            data-testid="overlap-warning"
-          >
-            <p className="font-semibold">This overlaps time already recorded:</p>
-            <ul className="list-disc pl-5">
+          <div role="status" className="alert" data-testid="overlap-warning">
+            <p>
+              <strong>This overlaps time already recorded:</strong>
+            </p>
+            <ul>
               {overlaps.map(({ session, overlapMs }) => (
                 <li key={session.id}>
-                  {categoryPath(session.categoryId, categories)},{' '}
+                  {categoryLabel(session.categoryId, categories)},{' '}
                   {session.id === inProgressId
                     ? `in progress since ${dateTime.format(toMs(session.startedAt))}`
                     : `${dateTime.format(toMs(session.startedAt))} – ${dateTime.format(toMs(session.endedAt))}`}{' '}
-                  ({formatDuration(overlapMs)} in common)
+                  ({formatMinutes(overlapMs)} in common)
                 </li>
               ))}
             </ul>
@@ -293,49 +242,57 @@ export function SessionDialog({
           </div>
         )}
 
+        <details className="fold" open={editing !== null && isAnswered(reflectionFormOf(editing)) ? true : undefined}>
+          <summary>Reflection (optional){isAnswered(reflection) ? '' : ' · not answered'}</summary>
+          <ReflectionFields idPrefix="edit" value={reflection} onChange={setReflection} />
+        </details>
+
         {error && (
-          <p role="alert" className={errorClass}>
+          <p role="alert" className="alert">
             {error}
           </p>
         )}
 
-        <div className="grid grid-cols-2 gap-2">
-          <Button type="submit" variant="primary" disabled={busy || problems.length > 0}>
+        <div className="pair">
+          <button type="submit" className="plate full" disabled={busy || problems.length > 0}>
             {overlaps.length > 0 && problems.length === 0 ? 'Save with overlap' : editing ? 'Save changes' : 'Save session'}
-          </Button>
-          <Button disabled={busy} onClick={onClose}>
+          </button>
+          <button type="button" className="plate" disabled={busy} onClick={onClose}>
             Cancel
-          </Button>
+          </button>
         </div>
 
         {editing &&
           (confirmingDelete ? (
-            <div role="group" aria-labelledby="delete-question" className="grid gap-2 border-t border-slate-200 pt-3 dark:border-slate-700">
-              <p id="delete-question" className="text-base">
-                Delete this session permanently? This cannot be undone.
-              </p>
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  variant="danger"
+            <div className="confirm" role="group" aria-labelledby="delete-question">
+              <p id="delete-question">Delete this session permanently? This cannot be undone.</p>
+              <div className="pair">
+                <button
+                  type="button"
+                  className="plate"
                   disabled={busy}
-                  onClick={() => void run(async () => {
-                    await deleteSession(db, editing.id)
-                    onClose()
-                  })}
+                  onClick={() =>
+                    void run(async () => {
+                      await deleteSession(db, editing.id)
+                      onClose()
+                    })
+                  }
                 >
                   Delete permanently
-                </Button>
-                <Button autoFocus disabled={busy} onClick={() => setConfirmingDelete(false)}>
+                </button>
+                <button type="button" className="plate full" autoFocus disabled={busy} onClick={() => setConfirmingDelete(false)}>
                   Keep session
-                </Button>
+                </button>
               </div>
             </div>
           ) : (
-            <Button variant="danger" disabled={busy} onClick={() => setConfirmingDelete(true)}>
-              Delete session…
-            </Button>
+            <p className="aside-act">
+              <button type="button" className="textbtn" disabled={busy} onClick={() => setConfirmingDelete(true)}>
+                Delete session…
+              </button>
+            </p>
           ))}
       </form>
-    </dialog>
+    </Sheet>
   )
 }

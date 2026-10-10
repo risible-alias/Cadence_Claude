@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { categoryPath, categoryProblem, categoryTree, restorePlan } from './categories'
+import { categoryLabel, categoryParts, categoryProblem, categoryTree, restorePlan, topLevelId } from './categories'
 import type { Category } from './types'
 
 const cat = (id: string, name: string, parentId: string | null = null, archived = false): Category => ({
@@ -41,11 +41,17 @@ describe('categoryProblem', () => {
   })
 })
 
-describe('categoryPath and categoryTree', () => {
-  it('shows the parent in the path, including for archived categories', () => {
-    expect(categoryPath('m', categories)).toBe('Academics → Mathematics')
-    expect(categoryPath('old', categories)).toBe('Old')
-    expect(categoryPath('gone', categories)).toBe('Unknown category')
+describe('labels and tree', () => {
+  it('puts the specific name first, then its group, including for archived categories', () => {
+    expect(categoryLabel('m', categories)).toBe('Mathematics — Academics')
+    expect(categoryParts('m', categories)).toEqual({ name: 'Mathematics', parent: 'Academics' })
+    expect(categoryLabel('old', categories)).toBe('Old')
+    expect(categoryLabel('gone', categories)).toBe('Unknown activity')
+  })
+
+  it('finds the top-level category', () => {
+    expect(topLevelId('m', categories)).toBe('a')
+    expect(topLevelId('v', categories)).toBe('v')
   })
 
   it('builds a sorted tree without archived categories', () => {

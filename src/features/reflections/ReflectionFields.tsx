@@ -1,4 +1,3 @@
-import { inputClass, labelClass } from '../../components/fields'
 import { RatingField } from '../../components/RatingField'
 import { MAX_NOTES_LENGTH, type Reflection } from '../../domain/reflections'
 import type { Session } from '../../domain/types'
@@ -37,7 +36,7 @@ export function ReflectionFields({
   onChange: (value: ReflectionForm) => void
 }) {
   return (
-    <div className="grid gap-3">
+    <>
       <RatingField
         name={`${idPrefix}-concentration`}
         legend="Concentration"
@@ -52,19 +51,16 @@ export function ReflectionFields({
         value={value.fatigue}
         onChange={(fatigue) => onChange({ ...value, fatigue })}
       />
-      <div>
-        <label htmlFor={`${idPrefix}-notes`} className={labelClass}>
-          Notes
-        </label>
+      <label className="field">
+        <span>Notes</span>
         <textarea
-          id={`${idPrefix}-notes`}
-          className={`${inputClass} py-2`}
+          className="input"
           rows={3}
           value={value.notes}
           maxLength={MAX_NOTES_LENGTH}
           onChange={(e) => onChange({ ...value, notes: e.target.value })}
         />
-      </div>
-    </div>
+      </label>
+    </>
   )
 }

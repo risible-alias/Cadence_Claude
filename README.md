@@ -6,29 +6,139 @@ See [PRODUCT.md](PRODUCT.md) and [ARCHITECTURE.md](ARCHITECTURE.md) for the spec
 No account, backend, AI, telemetry or network requests: everything is stored in this
 browser's IndexedDB.
 
-## Status: milestones 1–5 (no charts yet)
+## Status
 
-Implemented:
+Milestones 1–5 are implemented, now in the redesigned "journal" interface. Charts beyond the
+weekly bars, statistics and CSV export are not built.
 
-- **Installable, offline-capable PWA:** manifest, icons, and a service worker that caches the
-  built app so it loads and works with no connection after the first visit.
-- **Categories:** create, rename, archive and restore, with a two-level hierarchy
-  (e.g. Academics → Mathematics). Archiving never deletes sessions.
-- **Timer:** one active session at a time with Start, Pause, Resume, Finish and Cancel (cancel
-  asks for confirmation). The active session is persisted on every transition and restored after
-  refresh/reopen.
-- **Finishing saves immediately**, with no form in the way.
-- **Optional reflections:** concentration (1–10), mental fatigue (1–10) and notes, each
-  independently optional, offered after finishing and editable later.
-- **Manual entry, editing and deleting** of saved sessions (delete needs a second confirmation).
-- **History:** a day view and a week view (Monday to Sunday) with a category filter, per-category
-  weekly breakdown, and navigation to earlier days and weeks.
-- **In-progress session shown distinctly** from completed ones.
-- **Backup:** export everything to a JSON file; restore from a file after validation, a preview
-  and (if data exists) an explicit confirmation.
+- **Installable, offline-capable PWA.**
+- **Three sections:** Track, Explore and Settings, with a small frosted-glass navigation pane.
+- **Activities** (categories) in a two-level hierarchy, each marked with one of a curated set
+  of inks.
+- **Timer:** one session at a time; begin, pause, resume, finish, discard; survives reloads.
+- **Optional reflections:** concentration, mental fatigue and notes, each independently optional.
+- **History:** a to-scale day timeline and a week view, filterable by activity; manual entry,
+  editing and deleting.
+- **Backup:** export to JSON and validated restore.
 
-Not implemented yet: charts and statistics, CSV export, Track/History/Insights/Settings
-navigation.
+## The interface
+
+Activities are always shown specific name first: "Violin — Music", or "Violin" with "Music" as
+secondary text. (The code and the data format call them *categories*; the interface says
+*activities*.)
+
+### Track
+
+- **Beginning:** the four most recently used activities appear as large ledger rows (about 82px
+  high): a margin line in the activity's ink, its name, its group and when it was last used.
+  One tap starts the timer. "Other activities" opens the rest in place. With no activities yet,
+  the screen says so and links to Settings.
+- **While a session runs:** the activity's name, a large left-set timer of active time, a thin
+  line in the activity's ink showing the session so far (pauses hatched), and the start time,
+  elapsed time and paused time in words. Pause/Resume and Finish are the two main controls.
+- **Other options** (closed by default) holds the optional title and "Discard this session",
+  which asks for confirmation.
+- **After Finish** the session is already saved. A quiet "Add a reflection (optional)" link
+  appears; ignoring it needs no action.
+- **Today so far** sits below: the total, a line of the day with each session in its ink, and
+  the day's sessions. Tapping one opens it for editing.
+
+### Explore
+
+- **Day** is a timeline drawn to scale from the recorded sessions: hours in the margin, each
+  session a block washed in its ink, pauses as a hatched notch on its margin line. A session
+  that began the previous day is listed above the scale with only this day's share. Sessions
+  that overlap, or are too short to label without colliding, sit side by side. The session in
+  progress is drawn dashed, labelled, not editable and not counted. Tap a block to edit it.
+- **Week** (Monday to Sunday) shows the total, a stacked bar per day by top-level group, the
+  groups with their time and share, a per-activity breakdown, and each day with its total; a
+  day opens in the Day view.
+- **The date** is plain text between two arrows. The native date picker lies invisibly over the
+  text, so tapping it opens the system picker but its width can never push the row out of line.
+- **Filter** by one activity; a group includes its sub-activities.
+- **Add a past session** opens the same sheet used for editing.
+
+There is no "Patterns" view yet. The design prototypes sketched one with invented data; nothing
+of it was carried into the app.
+
+### Settings
+
+- **Activities:** the list with each activity's ink named beside its mark; tap one to rename it,
+  change its ink or archive it. Add an activity on its own or inside another. Archived
+  activities can be restored.
+- **Keeping your record:** export and restore (see Backup and restore), and whether the browser
+  treats the data as persistent.
+- **Install** guidance (hidden once installed) and a short About list of fixed behaviours.
+
+### Navigation and layout
+
+- On a phone the navigation is a small pane floating above the foot of the screen, with a
+  marker that slides between the three words. The page keeps enough space at its foot that the
+  last control always scrolls clear of the pane, and the pane hides while a sheet is open.
+- From 768px wide (iPad, desktop) the pane moves to the head of the page and stays in view while
+  the page scrolls beneath it. Content stays in a single book-width column.
+- The section is kept in the address (`#track`, `#explore`, `#settings`), so reload and the Back
+  button behave as expected.
+- Fallbacks: with reduced transparency or increased contrast the pane is solid; without
+  `backdrop-filter` support it is nearly opaque; with reduced motion the marker does not slide.
+  Safe-area insets are respected.
+- Sheets (editing a session or an activity) use the native `<dialog>`: rising from the foot on a
+  phone, centred on wider screens, and falling back to an in-page panel without modal support.
+
+## Colour system
+
+All colour comes from tokens in `src/styles/tokens.css`; components never hold colour values.
+
+**Rules**
+
+1. **Colour means category, and only that.** An activity keeps its ink in lists, on the
+   timeline and in charts.
+2. **Status is never colour alone.** In progress: a filled pip, an unbroken line, the words.
+   Paused: a hollow pip and hatching. Completed: a square mark and a washed block. Not yet
+   saved: an open mark and a dashed edge.
+3. **Totals across categories are plain ink.**
+4. **Text is never coloured.** A mark sits beside a name, and the ink is named in words where
+   it is chosen. Errors and warnings are set off by a rule and wording, not by a warning colour.
+5. **Focus is plain ink** with a gap of paper, so it cannot be mistaken for a category.
+
+**Foundation:** paper (page, raised, sunk), ink (primary, soft, faint), two rules. Dark mode
+has its own values rather than an inversion.
+
+**Inks**
+
+| Ink | Light | Dark |
+|---|---|---|
+| Lapis | `#1f4db3` | `#6690ec` |
+| Oxblood | `#a52a20` | `#e25c55` |
+| Plum | `#8e3f92` | `#ad6cba` |
+| Forest | `#08775a` | `#2a9d80` |
+| Brass | `#b3811a` | `#b08f24` |
+
+Lapis and oxblood are richer than in the prototype, and the dark paper is lighter
+(`#22201c`). The set was checked in both modes for separation under the common forms of colour
+blindness (for marks that sit next to each other), for separation with full colour vision, and
+for at least 3:1 contrast against paper.
+
+**How inks are assigned**
+
+- There are five inks and no limit on the number of activities. Inks are reused freely.
+- Each top-level activity stores an ink. A new one is given the ink least used by the other
+  top-level activities (palette order on a tie), so the first five each get their own.
+- A sub-activity follows its group's ink unless given its own in Settings; it can go back to
+  following.
+- An ink is stored on the activity itself (`color` holds the ink's id, e.g. `"forest"`).
+  Nothing is derived from position or count, so adding, archiving, restoring or reordering
+  activities never changes another's ink.
+- Reports and charts group by activity, never by ink. Two groups in the same ink remain two
+  rows and two bar segments, separated by a gap of paper and named in the list beneath.
+- **Adding an ink** is three small edits: the id in `INKS` (`src/domain/inks.ts`), and its
+  token lines and `.ink-<id>` rule in `tokens.css`. The palette order should be re-checked for
+  colour-blind separation when it changes.
+
+**Existing data.** The `color` field already existed and was always `null`. On first launch of
+this version a database upgrade (schema version 2) gives each existing top-level activity an
+ink, oldest first; sessions are untouched. Backups keep `schemaVersion: 1`: old backups restore
+and are given inks the same way, and new backups differ only in having `color` filled in.
 
 ## Installing and offline use
 
@@ -79,34 +189,21 @@ starts with empty storage there, so export a backup first.
 
 ## Reflections
 
-- Finishing a session saves it at once. An "Add a reflection (optional)" button then appears
-  under the timer; ignoring it needs no action and starting the next session removes it.
+- Finishing a session saves it at once. The reflection is offered afterwards and can be ignored.
 - Concentration and mental fatigue are 1–10 choices with an explicit "Not answered" option,
-  which is the initial state, so no score is ever recorded by default. Notes are free text (up to
-  2000 characters).
+  which is the initial state, so no score is ever recorded by default. Notes are free text (up
+  to 2000 characters).
 - Each field is stored separately and unanswered fields are stored as `null`, never `0`.
-- All three can be changed or cleared later from a session's Edit dialog, and can be set when
-  adding a past session.
+- All three can be changed or cleared later from a session's edit sheet, and set when adding a
+  past session.
 - Reflections never affect recorded times or totals.
-
-## History views
-
-- **Day** (default) and **Week** share the same navigation: previous/next, a date picker, and a
-  button back to today/this week. Future days and weeks cannot be selected.
-- **Weeks run Monday to Sunday** in local time. The week total, the per-category breakdown and
-  each day's total all use the overlap rule below, so day totals add up to the week total and a
-  session crossing midnight (or the week boundary) is split correctly.
-- **Category filter:** choosing a top-level category includes its sub-categories; archived
-  categories can be chosen too. Totals and lists follow the filter.
-- **The session in progress** appears in the day it is running through with a coloured edge,
-  tinted background and a Running/Paused badge (text and icon shape, not colour alone). It cannot
-  be edited there and is not counted in totals until finished. The Current session card gets the
-  same accent, and the page title shows ▶ or ⏸ with the category.
 
 ## How time is counted
 
 - **Elapsed** is the whole span from start to end. **Active** is elapsed minus pauses. Totals
-  always use active time; a row shows elapsed and paused as well when they differ.
+  always use active time; the timer and the edit sheet state elapsed and paused as well.
+- Durations are shown to the minute ("1 h 22 m"), rounded down, and in seconds only under a
+  minute. The running timer shows seconds. Stored times keep full precision.
 - Durations are derived from the start instant and pause intervals, never from a tick counter.
 - **Manual entries have no pauses**, so their active time equals their elapsed time. To record a
   break, enter two sessions.
@@ -124,8 +221,8 @@ starts with empty storage there, so export a backup first.
   went forward. A time that occurs twice when the clocks go back is taken as its first occurrence.
 - **Overlaps are warned about, not blocked.** If a new or edited session shares active time with
   another saved session or with the timer in progress, the dialog lists the clashes and the
-  button reads "Save with overlap". Overlapping sessions are both counted in daily totals, and
-  the day view says so. Back-to-back sessions, and time inside another session's pause, are not
+  button reads "Save with overlap". Overlapping sessions are both counted in daily totals, the
+  day view says so, and the timeline sets them side by side. Back-to-back sessions, and time inside another session's pause, are not
   overlaps. Finishing a timer is not checked against existing manual entries.
 
 ## Backup and restore
@@ -183,18 +280,22 @@ plain HTTP like this the app runs but cannot be installed or work offline; that 
 ```
 src/
   domain/     pure types, time arithmetic, timer state machine, session editing rules,
-              reflections, history aggregation, backup validation, category rules (+ tests)
+              reflections, inks, history aggregation and timeline layout, backup
+              validation, category rules (+ tests)
   db/         Dexie schema and transactional repository (+ tests)
-  features/   timer/, categories/, history/, reflections/, backup/, install/ UI
-  components/ shared button and field styles
-  app/        shell, hooks, service-worker registration and update banner
+  features/   timer/, categories/, history/, reflections/, backup/, install/, settings/ UI
+  components/ category mark and name, sheet (dialog), rating field
+  styles/     tokens.css (design tokens) and journal.css (the interface)
+  app/        shell, navigation, hooks, wording helpers, service-worker registration
 scripts/      icon generation
-e2e/          Playwright tests (timer; editing and backup; reflections, week view and
-              filter; offline)
+e2e/          Playwright tests (timer; editing and backup; reflections, week view,
+              inks, navigation; offline)
+design-prototypes/  the design exploration this interface came from; not part of the build
 ```
 
 `src/domain` has no React or IndexedDB imports. Time-dependent functions take `nowMs` as an
-argument; only UI event handlers call `Date.now()`.
+argument; only UI event handlers call `Date.now()`. Everything a chart or the timeline shows is
+calculated there (`history.ts`); the components only arrange it.
 
 ## Browser support
 
@@ -210,6 +311,8 @@ Safari-specific handling:
 - **Dialogs** use the native `<dialog>` element, with a non-modal fallback where `showModal` is
   missing.
 - **Select menus** are restyled, because Safari on macOS ignores height on native ones.
+- **The glass navigation** uses `backdrop-filter` with the `-webkit-` prefix and the fallbacks
+  described under Navigation and layout.
 - **File export** uses the share sheet on iOS/iPadOS (see Backup and restore); **file import**
   accepts `.json` by extension and MIME type, and falls back to `FileReader` where `File.text()`
   is missing.
@@ -220,18 +323,26 @@ Safari-specific handling:
 ## Deviations from the specs and assumptions
 
 - **Instruction file.** The agent instructions live in `CLAUDE.md`; there is no `AGENTS.md`.
-- **Single screen.** PRODUCT.md suggests Track/History/Insights/Settings areas; everything is
-  still on one scrolling screen.
+- **Three sections, not four.** PRODUCT.md suggests Track/History/Insights/Settings; the
+  approved design has Track, Explore and Settings, with history under Explore and no Insights.
+- **Styling.** ARCHITECTURE.md names Tailwind CSS. Tailwind remains for its reset, but the
+  interface is hand-written CSS driven by design tokens (`src/styles`), because the journal
+  design is built from a small set of named elements rather than utility classes.
+- **Wording.** The interface says "activities"; the code, database and backup say "categories".
+- **Inks.** The specs give categories an optional colour; this version stores an ink id there
+  and requires one for top-level categories. See Colour system.
+- **Title.** A title is added after starting (under Other options) or when editing, not before.
+- **Time format.** Durations read "1 h 22 m" to the minute rather than with seconds.
 - **Week start** is Monday and is not configurable.
-- **Reflection offer after Finish is collapsed** behind a button rather than shown as an open
+- **Reflection offer after Finish is collapsed** behind a link rather than shown as an open
   form, so that finishing never presents anything to dismiss (PRODUCT.md §2.2).
 - **Reflection scales** are labelled 1 = very low / 10 = very high (concentration) and
   1 = fresh / 10 = exhausted (fatigue); the specs give only the ranges.
 - **Service worker:** generated by `vite-plugin-pwa` (Workbox), precache only, update on user
   confirmation. This adds a sizeable dev-only dependency tree in exchange for a maintained,
   well-tested caching implementation.
-- **Icons** are a plain clock glyph rendered from `scripts/generate-icons.mjs`; placeholder
-  artwork.
+- **Icons** are a plain clock glyph in ink on paper tones, rendered from
+  `scripts/generate-icons.mjs`; placeholder artwork.
 - **Startup with an active session.** ARCHITECTURE.md says to "offer to resume, finish, or correct
   it". The app restores the session in its stored state (running or paused) and shows the normal
   controls; there is no separate prompt. A session in progress cannot be edited until finished.
@@ -247,10 +358,10 @@ Safari-specific handling:
   sub-categories archived in that same action; restoring a sub-category also restores its parent.
   A restore is refused if a live category now has the same name in the same place.
 - **Duplicate names** are rejected among non-archived siblings (case-insensitive).
-- **Category picker** is a plain `<select>`; recent categories are not surfaced yet.
 - **Totals** count saved sessions only, not the session in progress.
-- **No database migration** was needed: the IndexedDB schema is still version 1, so existing
-  data, active sessions and earlier backups work unchanged.
+- **One database migration:** schema version 2 assigns inks to existing top-level categories.
+  Table layouts are unchanged, and sessions, the active session and earlier backups work as
+  before. Once a device has run this version its database cannot be opened by the older one.
 - **Tooling versions.** Current releases were used (Vite 8, React 19, Tailwind 4 via
   `@tailwindcss/vite`, TypeScript 7, Vitest 5, Dexie 4, vite-plugin-pwa 2). `fake-indexeddb` is a
   dev-only addition for testing the Dexie layer in Node.
@@ -258,8 +369,8 @@ Safari-specific handling:
 ## Known limitations
 
 - **Not tested on real Apple devices.** The automated tests run in Chromium and in Playwright's
-  WebKit build (Safari's engine) at desktop and iPhone sizes. That covers layout, dialogs,
-  date/time fields and import, but it is not Safari itself. Still to be checked by hand on an
+  WebKit build (Safari's engine) at desktop and iPhone sizes. That covers layout, navigation,
+  sheets, date/time fields and import, but it is not Safari itself. Still to be checked by hand on an
   iPhone, iPad and Mac: Add to Home Screen / Add to Dock, launching offline from the icon, the
   native date/time pickers, the share-sheet export (tested only against a stand-in), and file
   selection in the Files picker.
@@ -284,7 +395,18 @@ Safari-specific handling:
   transaction, live queries update both), but this is not covered by automated tests.
 - **Day and week boundaries** use the browser's current timezone; travelling changes which local
   day a past session falls in.
-- **Filters** are by one category (with its sub-categories) only; there is no date-range view
+- **Filters** are by one activity (with its sub-activities) only; there is no date-range view
   beyond a single day or week, and no search.
+- **Colour.** Five inks cannot all be told apart by everyone: lapis and plum are the closest
+  pair, more so in dark mode. A name always accompanies a mark, and nothing depends on colour
+  alone. With more than five groups, inks repeat; in the week chart two same-ink groups are
+  separated only by a thin gap and the list beneath.
+- **Typeface.** The design relies on a book serif present on Apple devices (Iowan Old Style or
+  Palatino). Other platforms fall back to Georgia and lose some of the character.
+- **Week view** no longer lists every session under each day; open a day to see and edit them.
+- **Moving an activity** to a different group is not possible; create a new one instead.
+- **Preferences** (week start, appearance, reflection offer) are fixed and only described.
+- **The sheet and glass pane** have been checked in Playwright's WebKit build, not on a physical
+  iPhone; how the frosted pane looks over moving text is worth judging on a real device.
 - A corrupt stored active session is reported and left in place rather than discarded; there is no
   in-app repair path yet (it also blocks export, since the export would be incomplete).

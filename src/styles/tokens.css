@@ -1,0 +1,113 @@
+/*
+ * Cadence design tokens: paper, ink, and a curated set of category inks.
+ *
+ * What the tokens encode:
+ *   1. Colour means category, and only that. The same ink marks a category in
+ *      lists, on the timeline and in charts.
+ *   2. Status (running, paused, completed) is carried by shape, line style and
+ *      words, never by colour alone.
+ *   3. Totals that span categories are drawn in plain ink.
+ *   4. Text is always a paper or ink tone; a coloured mark sits beside it.
+ *
+ * Adding an ink: add `--cat-<id>` to the light block and both dark blocks, a
+ * `--tint-<id>` and an `.ink-<id>` rule below, and the id to INKS in
+ * src/domain/inks.ts. The inks were checked together for colour-blind
+ * separation and contrast on both papers; re-check when changing any of them.
+ */
+:root {
+  color-scheme: light;
+
+  /* Foundation */
+  --paper: #f6f1e7;
+  --paper-raised: #fbf8f1;
+  --paper-sunk: #ede6d8;
+  --ink: #26221c;
+  --ink-soft: #6b6356;
+  --ink-faint: #a0967f; /* unavailable marks only; never body text */
+  --rule: #d8cfbd;
+  --rule-strong: #b9ae98;
+
+  /* Category inks, in palette order */
+  --cat-lapis: #1f4db3;
+  --cat-oxblood: #a52a20;
+  --cat-plum: #8e3f92;
+  --cat-forest: #08775a;
+  --cat-brass: #b3811a;
+
+  --glass-shine: rgb(255 255 255 / 0.55);
+  --glass-drop: rgb(60 45 20 / 0.28);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --paper: #22201c;
+    --paper-raised: #2b2824;
+    --paper-sunk: #1a1815;
+    --ink: #ece5d8;
+    --ink-soft: #aaa191;
+    --ink-faint: #766e60;
+    --rule: #3c3730;
+    --rule-strong: #5a5247;
+    --cat-lapis: #6690ec;
+    --cat-oxblood: #e25c55;
+    --cat-plum: #ad6cba;
+    --cat-forest: #2a9d80;
+    --cat-brass: #b08f24;
+    --glass-shine: rgb(255 255 255 / 0.08);
+    --glass-drop: rgb(0 0 0 / 0.6);
+  }
+}
+
+/* Derived from the foundation, so both appearances stay in step. */
+:root {
+  --tint-lapis: color-mix(in srgb, var(--cat-lapis) 14%, var(--paper));
+  --tint-oxblood: color-mix(in srgb, var(--cat-oxblood) 14%, var(--paper));
+  --tint-plum: color-mix(in srgb, var(--cat-plum) 14%, var(--paper));
+  --tint-forest: color-mix(in srgb, var(--cat-forest) 14%, var(--paper));
+  --tint-brass: color-mix(in srgb, var(--cat-brass) 16%, var(--paper));
+
+  /* Interaction */
+  --select: color-mix(in srgb, var(--ink) 7%, var(--paper));
+  --press: color-mix(in srgb, var(--ink) 13%, var(--paper));
+  /* Focus is plain ink, doubled with a paper gap: never mistaken for a category. */
+  --focus: var(--ink);
+
+  /* Messages. Deliberately not a category ink. */
+  --alert-ink: var(--ink);
+  --alert-paper: var(--paper-sunk);
+
+  /* Charts and the timeline */
+  --chart-total: var(--ink);
+  --chart-axis: var(--ink-soft);
+  --chart-grid: var(--rule);
+  --chart-gap: var(--paper);
+
+  /* Glass navigation */
+  --glass-fill: color-mix(in srgb, var(--paper-raised) 62%, transparent);
+  --glass-edge: color-mix(in srgb, var(--ink) 14%, transparent);
+  --glass-thumb: color-mix(in srgb, var(--ink) 10%, transparent);
+
+  --serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', ui-serif, Georgia, serif;
+}
+
+/* One class per ink. `--c` is the ink, `--c-tint` its wash. */
+.ink-lapis {
+  --c: var(--cat-lapis);
+  --c-tint: var(--tint-lapis);
+}
+.ink-oxblood {
+  --c: var(--cat-oxblood);
+  --c-tint: var(--tint-oxblood);
+}
+.ink-plum {
+  --c: var(--cat-plum);
+  --c-tint: var(--tint-plum);
+}
+.ink-forest {
+  --c: var(--cat-forest);
+  --c-tint: var(--tint-forest);
+}
+.ink-brass {
+  --c: var(--cat-brass);
+  --c-tint: var(--tint-brass);
+}

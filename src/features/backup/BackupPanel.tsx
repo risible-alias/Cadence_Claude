@@ -1,12 +1,10 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useState } from 'react'
 import { useAction } from '../../app/hooks'
-import { Button } from '../../components/Button'
-import { cardClass, errorClass, labelClass, mutedClass } from '../../components/fields'
 import { db } from '../../db/db'
 import { exportBackup, replaceAllData, storedCounts } from '../../db/repo'
 import { parseBackupText, type Backup } from '../../domain/backup'
-import { categoryPath } from '../../domain/categories'
+import { categoryLabel } from '../../domain/categories'
 import { toLocalInputValue, toMs } from '../../domain/time'
 import { canShareFile, downloadFile, isIos, readFileText } from './files'
 
@@ -38,7 +36,7 @@ export function BackupPanel() {
       const backup = await exportBackup(db, now)
       const filename = `cadence-backup-${toLocalInputValue(now).replace(/[T:]/g, '-')}.json`
       const file = new File([JSON.stringify(backup, null, 2)], filename, { type: 'application/json' })
-      const summary = `${plural(backup.sessions.length, 'session')} and ${plural(backup.categories.length, 'category')}`
+      const summary = `${plural(backup.sessions.length, 'session')} and ${plural(backup.categories.length, 'activity')}`
       // On iPhone and iPad a blob download is unreliable, especially in the installed
       // app, so offer the share sheet ("Save to Files") instead. Sharing must start
       // directly from a tap, hence the separate button.
@@ -82,28 +80,27 @@ export function BackupPanel() {
       setChosen(null)
       setConfirmed(false)
       setInputKey((k) => k + 1)
-      setNotice(`Restored ${plural(backup.sessions.length, 'session')} and ${plural(backup.categories.length, 'category')}.`)
+      setNotice(`Restored ${plural(backup.sessions.length, 'session')} and ${plural(backup.categories.length, 'activity')}.`)
     })
 
   return (
-    <section className={cardClass} aria-labelledby="backup-heading">
-      <h2 id="backup-heading" className="mb-2 text-lg font-semibold">
-        Backup
-      </h2>
-      <p className={`mb-3 ${mutedClass}`}>
-        Your data exists only in this browser on this device. It is not synced, and clearing site data removes it.
-        Export a backup file regularly and keep it somewhere safe.
+    <>
+      <p className="prose">
+        Everything is kept in this browser on this device and nowhere else. It is not synced, and clearing site data
+        removes it. A backup is a single file you can store wherever you trust.
       </p>
 
-      <Button className="w-full" disabled={busy} onClick={() => void exportNow()}>
+      <button type="button" className="plate wide" disabled={busy} onClick={() => void exportNow()}>
         Export backup (JSON)
-      </Button>
+      </button>
       {pending && (
-        <div className="mt-2 grid grid-cols-2 gap-2">
-          <Button variant="primary" onClick={() => sharePending(pending.file, pending.summary)}>
+        <div className="pair" style={{ marginTop: '0.7rem' }}>
+          <button type="button" className="plate full" onClick={() => sharePending(pending.file, pending.summary)}>
             Save or share file
-          </Button>
-          <Button
+          </button>
+          <button
+            type="button"
+            className="plate"
             onClick={() => {
               downloadFile(pending.file)
               setNotice(`Exported ${pending.summary} to ${pending.file.name}. ${SENSITIVE}`)
@@ -111,18 +108,18 @@ export function BackupPanel() {
             }}
           >
             Download instead
-          </Button>
+          </button>
         </div>
       )}
 
       {storage.state !== 'unsupported' && (
-        <p className={`mt-3 ${mutedClass}`} data-testid="storage-status">
+        <p className="hint" style={{ marginTop: '0.8rem' }} data-testid="storage-status">
           {storage.state === 'persisted' ? (
             'This browser has agreed not to clear this data automatically. You can still remove it by clearing site data.'
           ) : (
             <>
               This browser may clear this data automatically if storage runs low or the site goes unused.{' '}
-              <button type="button" className="font-medium underline" onClick={storage.request}>
+              <button type="button" className="textbtn" style={{ minHeight: 0 }} onClick={storage.request}>
                 Ask it to keep the data
               </button>
               {storage.declined ? ' (it declined; installing the app or using it regularly can help).' : '.'}
@@ -131,30 +128,28 @@ export function BackupPanel() {
         </p>
       )}
 
-      <div className="mt-4 border-t border-slate-200 pt-3 dark:border-slate-700">
-        <label htmlFor="backup-file" className={labelClass}>
-          Restore from a backup file
-        </label>
+      <label className="field" style={{ marginTop: '1.6rem' }}>
+        <span>Restore from a backup file</span>
         <input
           key={inputKey}
-          id="backup-file"
           type="file"
           // Extension and both MIME types: iOS and macOS file pickers differ in which they honour.
           accept=".json,application/json,text/json"
           disabled={busy}
-          className="block w-full text-base file:mr-3 file:min-h-11 file:rounded-lg file:border file:border-slate-300 file:bg-white file:px-4 file:text-base file:font-medium file:text-slate-900 dark:file:border-slate-600 dark:file:bg-slate-800 dark:file:text-slate-100"
           onChange={(e) => void chooseFile(e.target.files?.[0])}
         />
-        <p className={`mt-1 ${mutedClass}`}>
-          Restoring replaces everything stored here with the file's contents. The file is checked first and you
-          confirm before anything changes.
-        </p>
-      </div>
+      </label>
+      <p className="hint">
+        Restoring replaces everything stored here with the file's contents. The file is checked first and you confirm
+        before anything changes.
+      </p>
 
       {chosen && 'errors' in chosen && (
-        <div role="alert" className={`mt-3 ${errorClass}`}>
-          <p className="font-semibold">“{chosen.name}” cannot be restored. Nothing was changed.</p>
-          <ul className="list-disc pl-5">
+        <div role="alert" className="alert">
+          <p>
+            <strong>“{chosen.name}” cannot be restored. Nothing was changed.</strong>
+          </p>
+          <ul>
             {chosen.errors.map((e) => (
               <li key={e}>{e}</li>
             ))}
@@ -163,42 +158,40 @@ export function BackupPanel() {
       )}
 
       {chosen && 'backup' in chosen && (
-        <div className="mt-3 grid gap-2" data-testid="restore-preview">
+        <div data-testid="restore-preview">
           <BackupSummary name={chosen.name} backup={chosen.backup} />
 
           {timerRunning ? (
-            <p role="alert" className={errorClass}>
+            <p role="alert" className="alert">
               Finish or cancel the session in progress before restoring.
             </p>
           ) : (
             <>
               {hasData && (
-                <div className="grid gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-100">
+                <div className="alert">
                   <p>
-                    <strong className="font-semibold">This deletes what is stored now:</strong>{' '}
-                    {plural(counts.sessions, 'session')} and {plural(counts.categories, 'category')}. It is not merged
-                    with the file. Export a backup of the current data first if you might want it back.
+                    <strong>This deletes what is stored now:</strong> {plural(counts.sessions, 'session')} and{' '}
+                    {plural(counts.categories, 'activity')}. It is not merged with the file. Export a backup of the
+                    current data first if you might want it back.
                   </p>
-                  <label className="flex min-h-11 items-center gap-3 text-base">
-                    <input
-                      type="checkbox"
-                      className="size-5 shrink-0"
-                      checked={confirmed}
-                      onChange={(e) => setConfirmed(e.target.checked)}
-                    />
-                    Replace all data on this device with this backup
+                  <label className="check">
+                    <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />
+                    <span>Replace all data on this device with this backup</span>
                   </label>
                 </div>
               )}
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  variant={hasData ? 'danger' : 'primary'}
+              <div className="pair">
+                <button
+                  type="button"
+                  className={hasData ? 'plate' : 'plate full'}
                   disabled={busy || counts === undefined || (hasData && !confirmed)}
                   onClick={() => void restore(chosen.backup)}
                 >
                   {hasData ? 'Replace all data' : 'Restore backup'}
-                </Button>
-                <Button
+                </button>
+                <button
+                  type="button"
+                  className={hasData ? 'plate full' : 'plate'}
                   disabled={busy}
                   onClick={() => {
                     setChosen(null)
@@ -207,7 +200,7 @@ export function BackupPanel() {
                   }}
                 >
                   Cancel
-                </Button>
+                </button>
               </div>
             </>
           )}
@@ -215,14 +208,14 @@ export function BackupPanel() {
       )}
 
       {error && (
-        <p role="alert" className={`mt-3 ${errorClass}`}>
+        <p role="alert" className="alert">
           {error}
         </p>
       )}
-      <p role="status" className={`${mutedClass} ${notice ? 'mt-3' : ''}`}>
+      <p role="status" className="saved" style={notice ? { marginTop: '0.8rem' } : undefined}>
         {notice}
       </p>
-    </section>
+    </>
   )
 }
 
@@ -233,23 +226,23 @@ function BackupSummary({ name, backup }: { name: string; backup: Backup }) {
   const unfinished = backup.activeSession
 
   return (
-    <div className="rounded-lg bg-slate-100 px-3 py-2 text-sm dark:bg-slate-800">
-      <p className="font-semibold">“{name}” is a valid backup.</p>
-      <ul className="list-disc pl-5">
+    <div className="summarybox">
+      <p>
+        <strong>“{name}” is a valid backup.</strong>
+      </p>
+      <ul>
         <li>Exported {dateTime.format(toMs(backup.exportedAt))}</li>
         <li>
-          {plural(backup.categories.length, 'category')}
+          {plural(backup.categories.length, 'activity')}
           {archived > 0 ? ` (${archived} archived)` : ''}
         </li>
         <li>
           {plural(backup.sessions.length, 'session')}
-          {backup.sessions.length > 0
-            ? `, from ${dateOnly.format(earliest)} to ${dateOnly.format(latest)}`
-            : ''}
+          {backup.sessions.length > 0 ? `, from ${dateOnly.format(earliest)} to ${dateOnly.format(latest)}` : ''}
         </li>
         {unfinished && (
           <li>
-            A timer was in progress when this was exported ({categoryPath(unfinished.categoryId, backup.categories)},
+            A timer was in progress when this was exported ({categoryLabel(unfinished.categoryId, backup.categories)},
             started {dateTime.format(toMs(unfinished.startedAt))}). It will not be restored; add it as a past session
             if you need it.
           </li>

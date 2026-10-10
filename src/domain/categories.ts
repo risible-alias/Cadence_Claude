@@ -38,12 +38,24 @@ export function categoryProblem(
   return duplicate ? 'A category with this name already exists here.' : null
 }
 
-/** `Academics → Mathematics`, or a placeholder if the category is missing. */
-export function categoryPath(categoryId: string, categories: readonly Category[]): string {
+/** A category's own name and, for a sub-category, its parent's. */
+export function categoryParts(categoryId: string, categories: readonly Category[]): { name: string; parent: string | null } {
   const category = categories.find((c) => c.id === categoryId)
-  if (!category) return 'Unknown category'
+  if (!category) return { name: 'Unknown activity', parent: null }
   const parent = category.parentId === null ? undefined : categories.find((c) => c.id === category.parentId)
-  return parent ? `${parent.name} → ${category.name}` : category.name
+  return { name: category.name, parent: parent?.name ?? null }
+}
+
+/** `Mathematics — Academics`: the specific name first, then its group. */
+export function categoryLabel(categoryId: string, categories: readonly Category[]): string {
+  const { name, parent } = categoryParts(categoryId, categories)
+  return parent ? `${name} — ${parent}` : name
+}
+
+/** The top-level category a category belongs to (itself, if it has no parent). */
+export function topLevelId(categoryId: string, categories: readonly Category[]): string {
+  const category = categories.find((c) => c.id === categoryId)
+  return category?.parentId ?? categoryId
 }
 
 export interface CategoryNode {

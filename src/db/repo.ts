@@ -1,9 +1,17 @@
 import { buildBackup, type Backup } from '../domain/backup'
 import { categoryProblem, normalizeCategoryName, restorePlan } from '../domain/categories'
+import { assignMissingInks, defaultInkFor, inkProblem } from '../domain/inks'
 import { applyReflection, reflectionProblems, type Reflection } from '../domain/reflections'
 import { applySessionEdit, createManualSession, draftProblems, type SessionDraft } from '../domain/sessions'
 import { toIso } from '../domain/time'
-import { activeSessionProblem, finishSession, pauseSession, resumeSession, startSession } from '../domain/timer'
+import {
+  activeSessionProblem,
+  finishSession,
+  pauseSession,
+  resumeSession,
+  retitleSession,
+  startSession,
+} from '../domain/timer'
 import type { ActiveSession, Category, Session } from '../domain/types'
 import { ACTIVE_SLOT, type CadenceDb } from './db'
 import { newId } from './id'
@@ -17,14 +25,16 @@ export async function createCategory(
   nowMs: number,
 ): Promise<Category> {
   return db.transaction('rw', db.categories, async () => {
-    const problem = categoryProblem(input, await db.categories.toArray())
+    const existing = await db.categories.toArray()
+    const problem = categoryProblem(input, existing)
     if (problem) throw new Error(problem)
     const now = toIso(nowMs)
     const category: Category = {
       id: newId(),
       name: normalizeCategoryName(input.name),
       parentId: input.parentId,
-      color: null,
+      // A new group gets the least-used ink; a sub-category inherits its parent's.
+      color: input.parentId === null ? defaultInkFor(existing) : null,
       archivedAt: null,
       createdAt: now,
       updatedAt: now,
@@ -44,6 +54,22 @@ export async function renameCategory(db: CadenceDb, id: string, name: string, no
     )
     if (problem) throw new Error(problem)
     await db.categories.update(id, { name: normalizeCategoryName(name), updatedAt: toIso(nowMs) })
+  })
+}
+
+/**
+ * Changes a category's ink. `null` on a sub-category means "same as its
+ * parent"; a top-level category must always have one. Nothing else changes,
+ * and no other category is affected.
+ */
+export async function setCategoryInk(db: CadenceDb, id: string, color: string | null, nowMs: number): Promise<void> {
+  await db.transaction('rw', db.categories, async () => {
+    const category = await db.categories.get(id)
+    if (!category) throw new Error('That category no longer exists.')
+    const problem = inkProblem(color)
+    if (problem) throw new Error(problem)
+    if (color === null && category.parentId === null) throw new Error('Choose an ink for this group.')
+    await db.categories.update(id, { color, updatedAt: toIso(nowMs) })
   })
 }
 
@@ -111,6 +137,15 @@ export async function pauseActiveSession(db: CadenceDb, nowMs: number): Promise<
 export async function resumeActiveSession(db: CadenceDb, nowMs: number): Promise<ActiveSession> {
   return db.transaction('rw', db.activeSession, async () => {
     const next = resumeSession(await requireActive(db), nowMs)
+    await db.activeSession.put({ ...next, slot: ACTIVE_SLOT })
+    return next
+  })
+}
+
+/** Sets or clears the title of the session in progress. */
+export async function setActiveTitle(db: CadenceDb, title: string | null, nowMs: number): Promise<ActiveSession> {
+  return db.transaction('rw', db.activeSession, async () => {
+    const next = retitleSession(await requireActive(db), title, nowMs)
     await db.activeSession.put({ ...next, slot: ACTIVE_SLOT })
     return next
   })
@@ -251,7 +286,13 @@ export async function replaceAllData(db: CadenceDb, backup: Backup): Promise<voi
     }
     await db.categories.clear()
     await db.sessions.clear()
-    await db.categories.bulkAdd(backup.categories)
+    // Backups made before inks existed have none; assign them as a fresh install would.
+    await db.categories.bulkAdd(assignMissingInks(backup.categories))
     await db.sessions.bulkAdd(backup.sessions)
   })
+}
+
+/** The most recently finished sessions, newest first. Enough to order activities by recent use. */
+export async function recentSessions(db: CadenceDb, limit = 200): Promise<Session[]> {
+  return db.sessions.orderBy('endedAt').reverse().limit(limit).toArray()
 }

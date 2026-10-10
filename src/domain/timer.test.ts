@@ -5,6 +5,7 @@ import {
   finishSession,
   pauseSession,
   resumeSession,
+  retitleSession,
   startSession,
   TimerTransitionError,
 } from './timer'
@@ -141,5 +142,17 @@ describe('activeSessionProblem', () => {
     expect(activeSessionProblem({ ...start(), state: 'paused' })).toBe('paused session has no pause start')
     expect(activeSessionProblem({ ...start(), startedAt: 'yesterday' })).toBe('invalid timestamps')
     expect(activeSessionProblem({ ...start(), pausedIntervals: [{ startedAt: 'x' }] })).toBe('invalid pause interval')
+  })
+})
+
+describe('retitleSession', () => {
+  it('sets, trims and clears the title without touching the timing', () => {
+    const paused = pauseSession(start(), T0 + 10 * MIN)
+    const titled = retitleSession(paused, '  Kreutzer 2 ', T0 + 12 * MIN)
+    expect(titled).toMatchObject({ title: 'Kreutzer 2', state: 'paused', pauseStartedAt: paused.pauseStartedAt, startedAt: paused.startedAt })
+    expect(activeElapsedMs(titled, T0 + 30 * MIN)).toBe(10 * MIN)
+    expect(retitleSession(titled, '   ', T0 + 13 * MIN).title).toBeNull()
+    expect(retitleSession(titled, null, T0 + 13 * MIN).title).toBeNull()
+    expect(paused.title).toBeNull()
   })
 })

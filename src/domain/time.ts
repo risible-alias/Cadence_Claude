@@ -140,6 +140,20 @@ export function formatDuration(ms: number): string {
   return `${s}s`
 }
 
+/** `1 h 22 m`, `22 m`, or `42 s` under a minute. For reading, not for the live timer. */
+export function formatMinutes(ms: number): string {
+  const { h, m, s } = splitDuration(ms)
+  if (h > 0) return `${h} h ${pad(m)} m`
+  if (m > 0) return `${m} m`
+  return `${s} s`
+}
+
+/** `32:12`, growing to `1:02:12` past an hour. The live timer's face. */
+export function formatTimer(ms: number): string {
+  const { h, m, s } = splitDuration(ms)
+  return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`
+}
+
 /** `YYYY-MM-DD` for the local calendar day containing `ms` (the value format of `<input type="date">`). */
 export function toLocalDateValue(ms: number): string {
   const d = new Date(ms)

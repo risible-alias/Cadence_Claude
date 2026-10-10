@@ -4,6 +4,8 @@ import {
   activeOverlapMs,
   formatClock,
   formatDuration,
+  formatMinutes,
+  formatTimer,
   intervalProblems,
   localDayWindow,
   sessionActiveMs,
@@ -169,6 +171,20 @@ describe('formatting', () => {
     expect(formatClock(0)).toBe('00:00:00')
     expect(formatClock(3909_999)).toBe('01:05:09')
     expect(formatClock(-5)).toBe('00:00:00')
+  })
+
+  it('formats reading durations to the minute, with seconds only under a minute', () => {
+    expect(formatMinutes(42_000)).toBe('42 s')
+    expect(formatMinutes(15 * MIN)).toBe('15 m')
+    expect(formatMinutes(15 * MIN + 59_000)).toBe('15 m')
+    expect(formatMinutes(3909_000)).toBe('1 h 05 m')
+    expect(formatMinutes(-1)).toBe('0 s')
+  })
+
+  it('formats the timer face without leading hours', () => {
+    expect(formatTimer(0)).toBe('00:00')
+    expect(formatTimer(32 * MIN + 12_000)).toBe('32:12')
+    expect(formatTimer(3909_999)).toBe('1:05:09')
   })
 
   it('formats durations with units', () => {

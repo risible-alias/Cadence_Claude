@@ -6,8 +6,8 @@ import { chromium } from '@playwright/test'
 /** `glyph` is the clock's size relative to the canvas; maskable icons need a wider margin. */
 const icon = (glyph) => `
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="100%" height="100%">
-  <rect width="32" height="32" fill="#0f766e"/>
-  <g transform="translate(16 16) scale(${glyph}) translate(-16 -16)" fill="none" stroke="#fff" stroke-width="2.5">
+  <rect width="32" height="32" fill="#26221c"/>
+  <g transform="translate(16 16) scale(${glyph}) translate(-16 -16)" fill="none" stroke="#f6f1e7" stroke-width="2.5">
     <circle cx="16" cy="16" r="8"/>
     <path d="M16 11v5l3 2" stroke-linecap="round" stroke-linejoin="round"/>
   </g>

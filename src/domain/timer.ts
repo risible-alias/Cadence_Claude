@@ -71,6 +71,11 @@ export function resumeSession(active: ActiveSession, nowMs: number): ActiveSessi
   }
 }
 
+/** Sets or clears the title of the session in progress. Allowed in either state. */
+export function retitleSession(active: ActiveSession, title: string | null, nowMs: number): ActiveSession {
+  return { ...active, title: title?.trim() || null, updatedAt: toIso(clampNow(active, nowMs)) }
+}
+
 /**
  * Converts the active session into a saved one. Works from either state; an
  * open pause is closed at the finish instant, so it stays excluded from active

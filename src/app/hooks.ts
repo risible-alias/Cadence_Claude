@@ -59,3 +59,25 @@ export function useAction(): {
   }
   return { busy, error, run }
 }
+
+export const TABS = ['track', 'explore', 'settings'] as const
+export type Tab = (typeof TABS)[number]
+
+const tabFromHash = (): Tab => TABS.find((t) => `#${t}` === window.location.hash) ?? 'track'
+
+/**
+ * The current section, kept in the address (#track, #explore, #settings) so
+ * the browser's back button and a reload both land where the user was.
+ */
+export function useTab(): Tab {
+  const [tab, setTab] = useState<Tab>(tabFromHash)
+  useEffect(() => {
+    const sync = () => {
+      setTab(tabFromHash())
+      window.scrollTo(0, 0)
+    }
+    window.addEventListener('hashchange', sync)
+    return () => window.removeEventListener('hashchange', sync)
+  }, [])
+  return tab
+}
