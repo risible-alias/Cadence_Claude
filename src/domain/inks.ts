@@ -15,6 +15,7 @@ export const INKS = [
   { id: 'plum', name: 'Plum' },
   { id: 'forest', name: 'Forest' },
   { id: 'brass', name: 'Brass' },
+  { id: 'cerulean', name: 'Cerulean' },
 ] as const
 
 export type InkId = (typeof INKS)[number]['id']

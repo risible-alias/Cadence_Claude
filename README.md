@@ -113,17 +113,25 @@ has its own values rather than an inversion.
 | Plum | `#8e3f92` | `#ad6cba` |
 | Forest | `#08775a` | `#2a9d80` |
 | Brass | `#b3811a` | `#b08f24` |
+| Cerulean | `#168ec4` | `#2f7fb0` |
 
-Lapis and oxblood are richer than in the prototype, and the dark paper is lighter
-(`#22201c`). The set was checked in both modes for separation under the common forms of colour
-blindness (for marks that sit next to each other), for separation with full colour vision, and
-for at least 3:1 contrast against paper.
+Lapis and oxblood are richer than in the prototype, the dark paper is lighter (`#22201c`), and
+cerulean was added as a sixth ink. The set was checked in both modes for lightness, saturation
+and at least 3:1 contrast against paper, and, taking the inks in palette order, for separation
+between neighbours under the common forms of colour blindness and with full colour vision.
+
+That check covers neighbours in palette order only. In the app any two inks can end up side by
+side (bars are stacked by size, not palette order), and no set of six hues is distinguishable
+pairwise by everyone. The closest pairs are cerulean with lapis and forest (mainly in dark
+mode) and lapis with plum. This is why every mark is accompanied by a name, segments are
+separated by a gap, and nothing relies on colour alone. A seventh ink was tried (a rose and a
+sienna) and left out: each sat too close to oxblood, plum or brass.
 
 **How inks are assigned**
 
-- There are five inks and no limit on the number of activities. Inks are reused freely.
+- There are six inks and no limit on the number of activities. Inks are reused freely.
 - Each top-level activity stores an ink. A new one is given the ink least used by the other
-  top-level activities (palette order on a tie), so the first five each get their own.
+  top-level activities (palette order on a tie), so the first six each get their own.
 - A sub-activity follows its group's ink unless given its own in Settings; it can go back to
   following.
 - An ink is stored on the activity itself (`color` holds the ink's id, e.g. `"forest"`).
@@ -397,10 +405,10 @@ Safari-specific handling:
   day a past session falls in.
 - **Filters** are by one activity (with its sub-activities) only; there is no date-range view
   beyond a single day or week, and no search.
-- **Colour.** Five inks cannot all be told apart by everyone: lapis and plum are the closest
-  pair, more so in dark mode. A name always accompanies a mark, and nothing depends on colour
-  alone. With more than five groups, inks repeat; in the week chart two same-ink groups are
-  separated only by a thin gap and the list beneath.
+- **Colour.** Six inks cannot all be told apart by everyone; see Colour system for the closest
+  pairs. A name always accompanies a mark, and nothing depends on colour alone. With more than
+  six groups, inks repeat; in the week chart two same-ink groups are separated only by a thin
+  gap and the list beneath.
 - **Typeface.** The design relies on a book serif present on Apple devices (Iowan Old Style or
   Palatino). Other platforms fall back to Georgia and lose some of the character.
 - **Week view** no longer lists every session under each day; open a day to see and edit them.

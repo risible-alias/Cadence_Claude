@@ -33,6 +33,7 @@
   --cat-plum: #8e3f92;
   --cat-forest: #08775a;
   --cat-brass: #b3811a;
+  --cat-cerulean: #168ec4;
 
   --glass-shine: rgb(255 255 255 / 0.55);
   --glass-drop: rgb(60 45 20 / 0.28);
@@ -53,6 +54,7 @@
     --cat-plum: #ad6cba;
     --cat-forest: #2a9d80;
     --cat-brass: #b08f24;
+    --cat-cerulean: #2f7fb0;
     --glass-shine: rgb(255 255 255 / 0.08);
     --glass-drop: rgb(0 0 0 / 0.6);
   }
@@ -65,6 +67,7 @@
   --tint-plum: color-mix(in srgb, var(--cat-plum) 14%, var(--paper));
   --tint-forest: color-mix(in srgb, var(--cat-forest) 14%, var(--paper));
   --tint-brass: color-mix(in srgb, var(--cat-brass) 16%, var(--paper));
+  --tint-cerulean: color-mix(in srgb, var(--cat-cerulean) 14%, var(--paper));
 
   /* Interaction */
   --select: color-mix(in srgb, var(--ink) 7%, var(--paper));
@@ -110,4 +113,8 @@
 .ink-brass {
   --c: var(--cat-brass);
   --c-tint: var(--tint-brass);
+}
+.ink-cerulean {
+  --c: var(--cat-cerulean);
+  --c-tint: var(--tint-cerulean);
 }

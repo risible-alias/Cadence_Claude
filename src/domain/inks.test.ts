@@ -148,6 +148,6 @@ describe('assignMissingInks', () => {
     const many = Array.from({ length: 23 }, (_, i) => cat(`c${String(i).padStart(2, '0')}`, { createdAt: `2026-01-${String(i + 1).padStart(2, '0')}T00:00:00.000Z` }))
     const result = assignMissingInks(many)
     expect(result.every((c) => isInkId(c.color))).toBe(true)
-    expect(result.slice(0, 6).map((c) => c.color)).toEqual(['lapis', 'oxblood', 'plum', 'forest', 'brass', 'lapis'])
+    expect(result.slice(0, 7).map((c) => c.color)).toEqual(['lapis', 'oxblood', 'plum', 'forest', 'brass', 'cerulean', 'lapis'])
   })
 })
