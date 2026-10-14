@@ -2,12 +2,13 @@ import { useState } from 'react'
 import { useAction } from '../../app/hooks'
 import { Sheet } from '../../components/Sheet'
 import { db } from '../../db/db'
-import { archiveCategory, renameCategory, setCategoryInk } from '../../db/repo'
-import { MAX_CATEGORY_NAME_LENGTH } from '../../domain/categories'
+import { CategoryOptions } from '../../components/CategoryOptions'
+import { archiveCategory, editCategory } from '../../db/repo'
+import { MAX_CATEGORY_NAME_LENGTH, placementProblem } from '../../domain/categories'
 import { INKS, inkName, isInkId, resolveInk } from '../../domain/inks'
 import type { Category } from '../../domain/types'
 
-/** Rename an activity, choose its ink, or archive it. */
+/** Rename an activity, move it, choose its ink, or archive it. */
 export function CategoryDialog({
   category,
   categories,
@@ -17,20 +18,37 @@ export function CategoryDialog({
   categories: Category[]
   onClose: () => void
 }) {
-  const parent = category.parentId === null ? null : (categories.find((c) => c.id === category.parentId) ?? null)
   const hasChildren = categories.some((c) => c.parentId === category.id && c.archivedAt === null)
   const [name, setName] = useState(category.name)
-  // '' stands for "same as the group", which only a sub-category may choose.
-  const [ink, setInk] = useState<string>(isInkId(category.color) ? category.color : parent ? '' : resolveInk(category.id, categories))
+  const [parentId, setParentId] = useState(category.parentId ?? '')
+  const parent = parentId === '' ? null : (categories.find((c) => c.id === parentId) ?? null)
+  // '' stands for "same as its group", which only an activity inside another may choose.
+  const initialInk = isInkId(category.color) ? category.color : category.parentId ? '' : resolveInk(category.id, categories)
+  const [ink, setInk] = useState<string>(initialInk)
+  const [inkTouched, setInkTouched] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const { busy, error, run } = useAction()
+  const moving = (parentId || null) !== category.parentId
+
+  const chooseParent = (value: string) => {
+    setParentId(value)
+    // A move keeps the colour it shows now, unless an ink is chosen deliberately.
+    if (inkTouched) return
+    setInk(value === (category.parentId ?? '') ? initialInk : isInkId(category.color) ? category.color : resolveInk(category.id, categories))
+  }
 
   const save = () =>
     run(async () => {
-      const now = Date.now()
-      if (name.trim() !== category.name) await renameCategory(db, category.id, name, now)
-      const color = ink === '' ? null : ink
-      if (color !== category.color) await setCategoryInk(db, category.id, color, now)
+      await editCategory(
+        db,
+        category.id,
+        {
+          name,
+          ...(moving ? { parentId: parentId || null } : {}),
+          ...(inkTouched || ink !== (category.color ?? '') ? { color: ink === '' ? null : ink } : {}),
+        },
+        Date.now(),
+      )
       onClose()
     })
 
@@ -53,6 +71,24 @@ export function CategoryDialog({
           />
         </label>
 
+        <label className="field">
+          <span>Inside</span>
+          <select className="input" value={parentId} onChange={(e) => chooseParent(e.target.value)}>
+            <option value="">Nothing (on its own)</option>
+            <CategoryOptions
+              categories={categories}
+              // Only places it can actually go: not itself, nothing inside it, nothing too deep.
+              allow={(c) => placementProblem(category.id, c.id, categories) === null}
+            />
+          </select>
+        </label>
+        {moving && (
+          <p className="hint">
+            Its past sessions{hasChildren ? ' and everything inside it' : ''} move with it, and totals are
+            recalculated. Nothing is deleted.
+          </p>
+        )}
+
         <fieldset className="field">
           <legend className="label">
             Ink <small>(how it is marked in lists, the timeline and charts)</small>
@@ -60,7 +96,16 @@ export function CategoryDialog({
           <div className="choices">
             {parent && (
               <label className={`choice line ink-${resolveInk(parent.id, categories)}`}>
-                <input type="radio" name="ink" value="" checked={ink === ''} onChange={() => setInk('')} />
+                <input
+                  type="radio"
+                  name="ink"
+                  value=""
+                  checked={ink === ''}
+                  onChange={() => {
+                    setInk('')
+                    setInkTouched(true)
+                  }}
+                />
                 <span>
                   <i className="mark" aria-hidden="true" />
                   Same as {parent.name} ({inkName(resolveInk(parent.id, categories))})
@@ -74,7 +119,10 @@ export function CategoryDialog({
                   name="ink"
                   value={option.id}
                   checked={ink === option.id}
-                  onChange={() => setInk(option.id)}
+                  onChange={() => {
+                    setInk(option.id)
+                    setInkTouched(true)
+                  }}
                 />
                 <span>
                   <i className="mark" aria-hidden="true" />

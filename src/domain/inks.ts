@@ -1,3 +1,4 @@
+import { ancestorIds, topLevelId } from './categories'
 import type { Category } from './types'
 
 /**
@@ -41,30 +42,40 @@ function fallbackInk(id: string): InkId {
 }
 
 /**
- * The ink a category is shown in. A category's own ink wins; otherwise a
- * sub-category takes its parent's. The result never depends on which other
- * categories exist, so adding, archiving or reordering them cannot change it.
+ * The category whose ink this one shows: itself if it has an ink of its own,
+ * otherwise its nearest ancestor that has one, otherwise its top-level
+ * category. Charts that stack by colour group sessions by this, so a coloured
+ * segment always stands for exactly one category.
  */
-export function resolveInk(categoryId: string, categories: readonly Category[]): InkId {
+export function inkOwnerId(categoryId: string, categories: readonly Category[]): string {
   const category = categories.find((c) => c.id === categoryId)
-  if (!category) return fallbackInk(categoryId)
-  if (isInkId(category.color)) return category.color
-  if (category.parentId !== null) {
-    const parent = categories.find((c) => c.id === category.parentId)
-    if (parent) return isInkId(parent.color) ? parent.color : fallbackInk(parent.id)
+  if (!category || isInkId(category.color)) return categoryId
+  for (const id of ancestorIds(categoryId, categories)) {
+    if (isInkId(categories.find((c) => c.id === id)?.color)) return id
   }
-  return fallbackInk(category.id)
+  return topLevelId(categoryId, categories)
 }
 
 /**
- * The ink to give a new top-level category: the one least used by the other
- * live top-level categories, earliest in palette order on a tie. Once the
- * palette is exhausted this starts reusing inks evenly.
+ * The ink a category is shown in: its own, or else the nearest ancestor's.
+ * The result never depends on unrelated categories, so adding, archiving or
+ * reordering them cannot change it.
+ */
+export function resolveInk(categoryId: string, categories: readonly Category[]): InkId {
+  const owner = inkOwnerId(categoryId, categories)
+  const color = categories.find((c) => c.id === owner)?.color
+  return isInkId(color) ? color : fallbackInk(owner)
+}
+
+/**
+ * The ink to give a new group: the one least used by live categories that
+ * have an ink of their own, at any level, earliest in palette order on a tie.
+ * Once the palette is exhausted this starts reusing inks evenly.
  */
 export function defaultInkFor(categories: readonly Category[]): InkId {
   const uses = new Map<InkId, number>(INKS.map((ink) => [ink.id, 0]))
   for (const c of categories) {
-    if (c.parentId === null && c.archivedAt === null && isInkId(c.color)) uses.set(c.color, uses.get(c.color)! + 1)
+    if (c.archivedAt === null && isInkId(c.color)) uses.set(c.color, uses.get(c.color)! + 1)
   }
   let best: InkId = INKS[0].id
   for (const ink of INKS) if (uses.get(ink.id)! < uses.get(best)!) best = ink.id

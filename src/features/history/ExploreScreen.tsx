@@ -3,15 +3,16 @@ import { useState } from 'react'
 import { countOf, datedDay, dayAndMonth, weekdayName } from '../../app/format'
 import { useTodayStartMs } from '../../app/hooks'
 import { CategoryName, inkClass, Mark } from '../../components/Category'
+import { CategoryOptions } from '../../components/CategoryOptions'
 import { db } from '../../db/db'
 import { sessionsOverlapping } from '../../db/repo'
-import { categoryLabel, categoryParts, categoryTree } from '../../domain/categories'
+import { categoryLabel } from '../../domain/categories'
 import {
   categoryFilterIds,
-  categoryTotals,
   daySummaries,
   filterByCategory,
-  groupTotals,
+  inkGroupTotals,
+  outlineTotals,
   hourCeiling,
   stackByDay,
   windowActiveMs,
@@ -45,7 +46,6 @@ export function ExploreScreen({ categories, active }: { categories: Category[]; 
   // A filter pointing at a category that no longer exists (after a restore) is ignored.
   const filterId = categories.some((c) => c.id === filterValue) ? filterValue : null
   const filterIds = categoryFilterIds(filterId, categories)
-  const tree = categoryTree(categories)
   const archived = categories.filter((c) => c.archivedAt !== null)
 
   const allSessions = useLiveQuery(() => sessionsOverlapping(db, startMs, endMs), [startMs, endMs])
@@ -120,17 +120,7 @@ export function ExploreScreen({ categories, active }: { categories: Category[]; 
           <span>Showing</span>
           <select aria-label="Show" value={filterId ?? ''} onChange={(e) => setFilterValue(e.target.value)}>
             <option value="">all activities</option>
-            {tree.flatMap(({ category, children }) => [
-              <option key={category.id} value={category.id}>
-                {category.name}
-                {children.length > 0 ? ' (whole group)' : ''}
-              </option>,
-              ...children.map((child) => (
-                <option key={child.id} value={child.id}>
-                  {child.name} — {category.name}
-                </option>
-              )),
-            ])}
+            <CategoryOptions categories={categories} wholeGroup />
             {archived.map((c) => (
               <option key={c.id} value={c.id}>
                 {categoryLabel(c.id, categories)} (archived)
@@ -233,15 +223,17 @@ function WeekBody({
   }
 
   // Everything below is calculated in src/domain; this only arranges it.
-  const groups = groupTotals(sessions, startMs, endMs, categories)
-  const activities = categoryTotals(sessions, startMs, endMs)
+  // Bars are divided by ink owner (each a single category); the list beneath the chart is their key.
+  const groups = inkGroupTotals(sessions, startMs, endMs, categories)
+  const outline = outlineTotals(sessions, startMs, endMs, categories)
   const order = groups.map((g) => g.groupId)
   const stacked = stackByDay(sessions, startMs, 7, order, categories)
   const days = daySummaries(sessions, startMs, 7)
   const topHours = hourCeiling(Math.max(...stacked.map((d) => d.totalMs)))
-  const groupInfo = new Map(
-    order.map((id) => [id, { name: categoryParts(id, categories).name, inkClass: inkClass(id, categories) }]),
+  const groupInfo = new Map<string, { name: string; inkClass: string }>(
+    order.map((id) => [id, { name: categoryLabel(id, categories), inkClass: inkClass(id, categories) }]),
   )
+  const widest = Math.max(...outline.map((row) => row.totalMs))
 
   return (
     <>
@@ -253,7 +245,7 @@ function WeekBody({
 
       <figure className="plot">
         <WeekChart days={stacked} topHours={topHours} todayStartMs={todayStartMs} groups={groupInfo} />
-        <figcaption>Each bar is a day, built from its groups. The list below names them.</figcaption>
+        <figcaption>Each bar is a day, divided by ink. The list below names each part.</figcaption>
       </figure>
 
       <ul className="shares" data-testid="week-groups">
@@ -261,7 +253,7 @@ function WeekBody({
           <li key={g.groupId} className={inkClass(g.groupId, categories)}>
             <span className="name">
               <Mark id={g.groupId} categories={categories} />
-              <span className="what">{categoryParts(g.groupId, categories).name}</span>
+              <CategoryName id={g.groupId} categories={categories} />
             </span>
             <span className="len">
               {formatMinutes(g.activeMs)}
@@ -275,16 +267,22 @@ function WeekBody({
       </ul>
 
       <p className="kicker subhead">By activity</p>
+      <p className="hint">Each activity’s total includes everything inside it.</p>
       <ul className="shares" data-testid="week-breakdown">
-        {activities.map((a) => (
-          <li key={a.categoryId} className={inkClass(a.categoryId, categories)}>
+        {outline.map((row) => (
+          <li
+            key={row.categoryId}
+            className={inkClass(row.categoryId, categories)}
+            style={{ paddingLeft: `${row.depth * 1.2}rem` }}
+            data-depth={row.depth}
+          >
             <span className="name">
-              <Mark id={a.categoryId} categories={categories} />
-              <CategoryName id={a.categoryId} categories={categories} />
+              <Mark id={row.categoryId} categories={categories} />
+              <span className="what">{categories.find((c) => c.id === row.categoryId)?.name}</span>
             </span>
-            <span className="len">{formatMinutes(a.activeMs)}</span>
+            <span className="len">{formatMinutes(row.totalMs)}</span>
             <span className="track">
-              <span className="fill" style={{ width: `${(a.activeMs / activities[0]!.activeMs) * 100}%` }} />
+              <span className="fill" style={{ width: `${(row.totalMs / widest) * 100}%` }} />
             </span>
           </li>
         ))}

@@ -4,10 +4,11 @@ export const MIN = 60_000
 
 /** Adds an activity from the Settings screen, which must be showing. */
 export async function addActivity(page: Page, name: string, inside?: string) {
-  await page.getByLabel('New activity name').fill(name)
-  await page.getByLabel('Inside').selectOption(inside ? { label: inside } : '')
-  await page.getByRole('button', { name: 'Add activity' }).click()
-  await expect(page.getByLabel('New activity name')).toHaveValue('')
+  const form = page.getByRole('form', { name: 'Add activity' })
+  await form.getByLabel('New activity name').fill(name)
+  await form.getByLabel('Inside').selectOption(inside ? { label: inside } : '')
+  await form.getByRole('button', { name: 'Add activity' }).click()
+  await expect(form.getByLabel('New activity name')).toHaveValue('')
 }
 
 /** Opens Settings, adds the activities, and returns to the section given. */

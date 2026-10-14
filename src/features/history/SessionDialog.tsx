@@ -4,7 +4,8 @@ import { useAction } from '../../app/hooks'
 import { Sheet } from '../../components/Sheet'
 import { db } from '../../db/db'
 import { addManualSession, deleteSession, getActiveSession, sessionsOverlapping, updateSession } from '../../db/repo'
-import { categoryLabel, categoryTree } from '../../domain/categories'
+import { CategoryOptions } from '../../components/CategoryOptions'
+import { categoryLabel } from '../../domain/categories'
 import {
   draftProblems,
   findActiveOverlaps,
@@ -112,7 +113,6 @@ export function SessionDialog({
       )
     : []
 
-  const tree = categoryTree(categories)
   const keptArchived =
     editing && categories.find((c) => c.id === editing.categoryId && c.archivedAt !== null) ? editing.categoryId : null
 
@@ -137,16 +137,7 @@ export function SessionDialog({
           <select className="input" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
             {!editing && <option value="">Choose an activity…</option>}
             {keptArchived && <option value={keptArchived}>{categoryLabel(keptArchived, categories)} (archived)</option>}
-            {tree.flatMap(({ category, children }) => [
-              <option key={category.id} value={category.id}>
-                {category.name}
-              </option>,
-              ...children.map((child) => (
-                <option key={child.id} value={child.id}>
-                  {child.name} — {category.name}
-                </option>
-              )),
-            ])}
+            <CategoryOptions categories={categories} />
           </select>
         </label>
 

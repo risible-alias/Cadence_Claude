@@ -1,3 +1,4 @@
+import { ancestorIds, MAX_CATEGORY_DEPTH } from './categories'
 import { intervalProblems, toIso } from './time'
 import { activeSessionProblem } from './timer'
 import type { ActiveSession, Category, Interval, Session } from './types'
@@ -133,9 +134,21 @@ export function validateBackup(value: unknown, nowMs: number): BackupResult {
     })
     for (const c of categories) {
       if (c.parentId === null) continue
-      const parent = categories.find((p) => p.id === c.parentId)
-      if (!parent) fail(`Category “${c.name}” refers to a parent that is not in the backup.`)
-      else if (parent.parentId !== null) fail(`Category “${c.name}” is nested more than two levels deep.`)
+      if (!categories.some((p) => p.id === c.parentId)) {
+        fail(`Category “${c.name}” refers to a parent that is not in the backup.`)
+        continue
+      }
+      // The walk up stops early only at a loop (a missing parent is reported on its own).
+      const chain = ancestorIds(c.id, categories)
+      const top = categories.find((p) => p.id === chain.at(-1))
+      const loops =
+        c.parentId === c.id ||
+        (top !== undefined && top.parentId !== null && categories.some((p) => p.id === top.parentId))
+      if (loops) {
+        fail(`Category “${c.name}” is inside itself through its parents.`)
+      } else if (chain.length + 1 > MAX_CATEGORY_DEPTH) {
+        fail(`Category “${c.name}” is nested more than ${MAX_CATEGORY_DEPTH} levels deep.`)
+      }
     }
   }
   const categoryIds = new Set(categories.map((c) => c.id))

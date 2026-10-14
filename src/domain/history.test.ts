@@ -4,7 +4,8 @@ import {
   categoryTotals,
   daySummaries,
   filterByCategory,
-  groupTotals,
+  inkGroupTotals,
+  outlineTotals,
   hourCeiling,
   layoutTimeline,
   recentCategoryIds,
@@ -150,7 +151,7 @@ describe('grouping by top-level category', () => {
   ]
 
   it('rolls sub-categories up to their group and keeps same-ink groups separate', () => {
-    expect(groupTotals(sessions, week.startMs, week.endMs, categories)).toEqual([
+    expect(inkGroupTotals(sessions, week.startMs, week.endMs, categories)).toEqual([
       { groupId: 'violin', activeMs: 105 * MIN },
       { groupId: 'academics', activeMs: 90 * MIN },
     ])
@@ -262,5 +263,70 @@ describe('layoutTimeline', () => {
       ['x', 1, 2],
       ['y', 1, 2],
     ])
+  })
+})
+
+describe('reorganising categories applies to history retrospectively', () => {
+  const week = localWeekWindow(new Date(2026, 0, 7))
+  const ink = (c: Category, color: string | null) => ({ ...c, color })
+  // Before: Science (lapis) ─ Physics, and Music (brass) ─ Violin, both at the top.
+  const before = [
+    ink(cat('science'), 'lapis'),
+    cat('physics', 'science'),
+    ink(cat('music'), 'brass'),
+    cat('violin', 'music'),
+    ink(cat('reading'), 'plum'),
+  ]
+  // After: a new Learning (forest) holds both; nothing else changes.
+  const after = [
+    ink(cat('learning'), 'forest'),
+    ...before.map((c) => (c.id === 'science' || c.id === 'music' ? { ...c, parentId: 'learning' } : c)),
+  ]
+  const sessions = [
+    s('p', 'physics', '2026-01-06T09:00Z', '2026-01-06T10:00Z'),
+    s('sci', 'science', '2026-01-06T11:00Z', '2026-01-06T11:30Z'),
+    s('v', 'violin', '2026-01-07T23:30Z', '2026-01-08T00:30Z'),
+    s('r', 'reading', '2026-01-08T20:00Z', '2026-01-08T20:45Z'),
+  ]
+  const total = (ids: Set<string> | null) =>
+    windowActiveMs(filterByCategory(sessions, ids), week.startMs, week.endMs)
+
+  it('a filter on the new parent includes everything moved under it, at any depth', () => {
+    expect(total(categoryFilterIds('learning', before))).toBe(0)
+    expect(total(categoryFilterIds('learning', after))).toBe(150 * MIN)
+    expect(total(categoryFilterIds('science', after))).toBe(90 * MIN)
+    expect(total(null)).toBe(195 * MIN)
+  })
+
+  it('outline totals regroup history under the new parent without changing any session', () => {
+    expect(outlineTotals(sessions, week.startMs, week.endMs, after).map((r) => [r.categoryId, r.depth, r.ownMs, r.totalMs])).toEqual([
+      ['learning', 0, 0, 150 * MIN],
+      ['music', 1, 0, 60 * MIN],
+      ['violin', 2, 60 * MIN, 60 * MIN],
+      ['science', 1, 30 * MIN, 90 * MIN],
+      ['physics', 2, 60 * MIN, 60 * MIN],
+      ['reading', 0, 45 * MIN, 45 * MIN],
+    ])
+    expect(sessions.map((x) => x.categoryId)).toEqual(['physics', 'science', 'violin', 'reading'])
+  })
+
+  it('stacks by ink owner, so moved groups that keep their inks keep their own segments', () => {
+    const order = ['science', 'music', 'reading']
+    expect(inkGroupTotals(sessions, week.startMs, week.endMs, after)).toEqual(inkGroupTotals(sessions, week.startMs, week.endMs, before))
+    expect(stackByDay(sessions, week.startMs, 7, order, after)).toEqual(stackByDay(sessions, week.startMs, 7, order, before))
+  })
+
+  it('merges into the parent’s segment once the moved groups follow its ink', () => {
+    const following = after.map((c) => (c.id === 'science' || c.id === 'music' ? { ...c, color: null } : c))
+    expect(inkGroupTotals(sessions, week.startMs, week.endMs, following)).toEqual([
+      { groupId: 'learning', activeMs: 150 * MIN },
+      { groupId: 'reading', activeMs: 45 * MIN },
+    ])
+  })
+
+  it('includes archived categories so their history stays visible', () => {
+    const archivedPhysics = after.map((c) => (c.id === 'physics' ? { ...c, archivedAt: '2026-01-09T00:00:00.000Z' } : c))
+    expect(outlineTotals(sessions, week.startMs, week.endMs, archivedPhysics).find((r) => r.categoryId === 'physics')?.totalMs).toBe(60 * MIN)
+    expect(total(categoryFilterIds('science', archivedPhysics))).toBe(90 * MIN)
   })
 })

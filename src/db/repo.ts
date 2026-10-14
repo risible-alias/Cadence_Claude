@@ -1,6 +1,6 @@
 import { buildBackup, type Backup } from '../domain/backup'
-import { categoryProblem, normalizeCategoryName, restorePlan } from '../domain/categories'
-import { assignMissingInks, defaultInkFor, inkProblem } from '../domain/inks'
+import { categoryProblem, descendantIds, moveProblem, normalizeCategoryName, restorePlan } from '../domain/categories'
+import { assignMissingInks, defaultInkFor, inkProblem, isInkId, resolveInk } from '../domain/inks'
 import { applyReflection, reflectionProblems, type Reflection } from '../domain/reflections'
 import { applySessionEdit, createManualSession, draftProblems, type SessionDraft } from '../domain/sessions'
 import { toIso } from '../domain/time'
@@ -44,17 +44,62 @@ export async function createCategory(
   })
 }
 
-export async function renameCategory(db: CadenceDb, id: string, name: string, nowMs: number): Promise<void> {
-  await db.transaction('rw', db.categories, async () => {
-    const category = await db.categories.get(id)
+/**
+ * Changes any of a category's name, place in the tree and ink, in one
+ * transaction: either every change is saved or none is. Only what is given is
+ * changed; the id stays the same, and sessions are never touched (they refer to
+ * the category by id, so its history moves with it).
+ *
+ * Moving keeps colours where they are: a category that was following an
+ * ancestor's ink is given that ink as its own, unless a new `color` is chosen
+ * in the same edit. Whatever is inside it moves along and keeps following it.
+ */
+export async function editCategory(
+  db: CadenceDb,
+  id: string,
+  changes: { name?: string; parentId?: string | null; color?: string | null },
+  nowMs: number,
+): Promise<Category> {
+  return db.transaction('rw', db.categories, async () => {
+    const all = await db.categories.toArray()
+    const category = all.find((c) => c.id === id)
     if (!category) throw new Error('That category no longer exists.')
-    const problem = categoryProblem(
-      { name, parentId: category.parentId, selfId: id },
-      await db.categories.toArray(),
-    )
+
+    const name = changes.name === undefined ? category.name : normalizeCategoryName(changes.name)
+    const parentId = changes.parentId === undefined ? category.parentId : changes.parentId
+    const moving = parentId !== category.parentId
+
+    const problem = moving
+      ? moveProblem(id, parentId, all, name)
+      : categoryProblem({ name, parentId, selfId: id }, all)
     if (problem) throw new Error(problem)
-    await db.categories.update(id, { name: normalizeCategoryName(name), updatedAt: toIso(nowMs) })
+
+    let color = category.color
+    if (changes.color !== undefined) {
+      const inkError = inkProblem(changes.color)
+      if (inkError) throw new Error(inkError)
+      color = changes.color
+    } else if (moving && !isInkId(color)) {
+      color = resolveInk(id, all)
+    }
+    if (color === null && parentId === null) throw new Error('Choose an ink for this group.')
+
+    const updated: Category = { ...category, name, parentId, color, updatedAt: toIso(nowMs) }
+    await db.categories.put(updated)
+    return updated
   })
+}
+
+export async function renameCategory(db: CadenceDb, id: string, name: string, nowMs: number): Promise<void> {
+  await editCategory(db, id, { name }, nowMs)
+}
+
+/**
+ * Moves a category under another (or to the top level with `null`), taking
+ * everything inside it along. See `editCategory`.
+ */
+export async function moveCategory(db: CadenceDb, id: string, parentId: string | null, nowMs: number): Promise<void> {
+  await editCategory(db, id, { parentId }, nowMs)
 }
 
 /**
@@ -63,26 +108,21 @@ export async function renameCategory(db: CadenceDb, id: string, name: string, no
  * and no other category is affected.
  */
 export async function setCategoryInk(db: CadenceDb, id: string, color: string | null, nowMs: number): Promise<void> {
-  await db.transaction('rw', db.categories, async () => {
-    const category = await db.categories.get(id)
-    if (!category) throw new Error('That category no longer exists.')
-    const problem = inkProblem(color)
-    if (problem) throw new Error(problem)
-    if (color === null && category.parentId === null) throw new Error('Choose an ink for this group.')
-    await db.categories.update(id, { color, updatedAt: toIso(nowMs) })
-  })
+  await editCategory(db, id, { color }, nowMs)
 }
 
 /**
- * Archives a category and its sub-categories. Nothing is deleted: sessions
- * keep their category reference and history keeps showing its name.
+ * Archives a category and everything inside it, at any depth. Nothing is
+ * deleted: sessions keep their category reference and history keeps showing
+ * its name.
  */
 export async function archiveCategory(db: CadenceDb, id: string, nowMs: number): Promise<void> {
   await db.transaction('rw', db.categories, async () => {
     const now = toIso(nowMs)
-    const children = await db.categories.where('parentId').equals(id).toArray()
-    const ids = [id, ...children.filter((c) => c.archivedAt === null).map((c) => c.id)]
-    await db.categories.where('id').anyOf(ids).modify({ archivedAt: now, updatedAt: now })
+    const all = await db.categories.toArray()
+    if (!all.some((c) => c.id === id)) throw new Error('That category no longer exists.')
+    const inside = descendantIds(id, all).filter((cid) => all.find((c) => c.id === cid)?.archivedAt === null)
+    await db.categories.where('id').anyOf([id, ...inside]).modify({ archivedAt: now, updatedAt: now })
   })
 }
 

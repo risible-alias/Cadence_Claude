@@ -115,9 +115,31 @@ describe('rejection of malformed payloads', () => {
   it('rejects broken category references and hierarchy', () => {
     expect(errorsFor((b) => (b.sessions[0].categoryId = 'gone'))[0]).toMatch(/Session 1 refers to a category/)
     expect(errorsFor((b) => (b.categories[1].parentId = 'gone'))[0]).toMatch(/parent that is not in the backup/)
+    // Deeper nesting is fine up to the limit...
     expect(
       errorsFor((b) => b.categories.push({ ...b.categories[1], id: 'c-algebra', name: 'Algebra', parentId: 'c-maths' })),
-    ).toEqual(['Category “Algebra” is nested more than two levels deep.'])
+    ).toEqual([])
+    // ...but not beyond it.
+    expect(
+      errorsFor((b) => {
+        let parent = 'c-maths'
+        for (let i = 0; i < 4; i++) {
+          b.categories.push({ ...b.categories[1], id: `deep-${i}`, name: `Deep ${i}`, parentId: parent })
+          parent = `deep-${i}`
+        }
+      }),
+    ).toEqual(['Category “Deep 3” is nested more than 5 levels deep.'])
+  })
+
+  it('rejects categories that are their own ancestors', () => {
+    const errors = errorsFor((b) => {
+      b.categories[0].parentId = 'c-maths'
+    })
+    expect(errors).toContain('Category “Academics” is inside itself through its parents.')
+    expect(errors).toContain('Category “Mathematics” is inside itself through its parents.')
+    expect(errorsFor((b) => (b.categories[0].parentId = 'c-academics'))).toContain(
+      'Category “Academics” is inside itself through its parents.',
+    )
   })
 
   it('rejects duplicate ids', () => {

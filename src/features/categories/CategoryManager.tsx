@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { useAction } from '../../app/hooks'
 import { CategoryName, Mark } from '../../components/Category'
+import { CategoryOptions } from '../../components/CategoryOptions'
 import { db } from '../../db/db'
 import { createCategory, restoreCategory } from '../../db/repo'
-import { categoryLabel, categoryTree, MAX_CATEGORY_NAME_LENGTH } from '../../domain/categories'
+import { categoryLabel, categoryOutline, depthOf, MAX_CATEGORY_DEPTH, MAX_CATEGORY_NAME_LENGTH } from '../../domain/categories'
 import { inkName, isInkId, resolveInk } from '../../domain/inks'
 import type { Category } from '../../domain/types'
 import { CategoryDialog } from './CategoryDialog'
@@ -13,20 +14,21 @@ export function CategoryManager({ categories }: { categories: Category[] }) {
   const [parentId, setParentId] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const { busy, error, run } = useAction()
-  const tree = categoryTree(categories)
+  const outline = categoryOutline(categories)
   const archived = categories
     .filter((c) => c.archivedAt !== null)
     .map((c) => ({ id: c.id, label: categoryLabel(c.id, categories) }))
     .sort((a, b) => a.label.localeCompare(b.label))
   // Ignore a parent that has since been archived.
-  const parent = tree.some((n) => n.category.id === parentId) ? parentId : ''
+  const parent = outline.some((e) => e.category.id === parentId) ? parentId : ''
   const editing = categories.find((c) => c.id === editingId && c.archivedAt === null)
 
-  const line = (category: Category, inner: boolean) => (
+  const line = (category: Category, depth: number) => (
     <li key={category.id}>
       <button
         type="button"
-        className={`line${inner ? ' inner' : ''}`}
+        className="line"
+        style={{ paddingLeft: `${depth * 1.4}rem` }}
         aria-label={`Edit ${category.name}`}
         onClick={() => setEditingId(category.id)}
       >
@@ -34,24 +36,22 @@ export function CategoryManager({ categories }: { categories: Category[] }) {
         <span className="lbl">
           <span className="what">{category.name}</span>
         </span>
-        {/* The ink is named as well as shown. A sub-activity only names one it does not inherit. */}
-        <span className="go">
-          {inner && !isInkId(category.color) ? 'Edit' : inkName(resolveInk(category.id, categories))}
-        </span>
+        {/* The ink is named as well as shown; an activity that follows its group says Edit instead. */}
+        <span className="go">{isInkId(category.color) ? inkName(resolveInk(category.id, categories)) : 'Edit'}</span>
       </button>
     </li>
   )
 
   return (
     <>
-      {tree.length === 0 ? (
+      {outline.length === 0 ? (
         <p className="prose">
           No activities yet. Add one for anything you want to keep time for. An activity can stand on its own, or sit
-          inside another to form a group, such as Violin inside Music.
+          inside another to form a group, such as Violin inside Music. Activities can be moved later.
         </p>
       ) : (
         <ul className="plain" data-testid="activity-list">
-          {tree.flatMap(({ category, children }) => [line(category, false), ...children.map((child) => line(child, true))])}
+          {outline.map(({ category, depth }) => line(category, depth))}
         </ul>
       )}
 
@@ -80,11 +80,7 @@ export function CategoryManager({ categories }: { categories: Category[] }) {
           <span>Inside</span>
           <select className="input" value={parent} onChange={(e) => setParentId(e.target.value)}>
             <option value="">Nothing (on its own)</option>
-            {tree.map(({ category }) => (
-              <option key={category.id} value={category.id}>
-                {category.name}
-              </option>
-            ))}
+            <CategoryOptions categories={categories} allow={(c) => depthOf(c.id, categories) < MAX_CATEGORY_DEPTH} />
           </select>
         </label>
         {error && (

@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { validateBackup } from '../domain/backup'
 import { INKS, resolveInk } from '../domain/inks'
 import { sessionTimes } from '../domain/sessions'
+import { categoryFilterIds, filterByCategory, windowActiveMs } from '../domain/history'
 import { activeOverlapMs, localDayWindow, sessionActiveMs } from '../domain/time'
 import { ACTIVE_SLOT, CadenceDb, type StoredActiveSession } from './db'
 import {
@@ -14,7 +15,9 @@ import {
   deleteSession,
   exportBackup,
   finishActiveSession,
+  editCategory,
   getActiveSession,
+  moveCategory,
   pauseActiveSession,
   recentSessions,
   renameCategory,
@@ -44,12 +47,14 @@ beforeEach(() => {
 })
 
 describe('categories', () => {
-  it('creates a two-level hierarchy and rejects a third level', async () => {
+  it('creates nested categories down to the depth limit', async () => {
     const parent = await createCategory(db, { name: 'Academics', parentId: null }, T0)
     const child = await createCategory(db, { name: 'Mathematics', parentId: parent.id }, T0)
     expect(child.parentId).toBe(parent.id)
-    await expect(createCategory(db, { name: 'Algebra', parentId: child.id }, T0)).rejects.toThrow(/two levels/)
-    expect(await db.categories.count()).toBe(2)
+    let deepest = child
+    for (const name of ['Algebra', 'Rings', 'Ideals']) deepest = await createCategory(db, { name, parentId: deepest.id }, T0)
+    await expect(createCategory(db, { name: 'Too deep', parentId: deepest.id }, T0)).rejects.toThrow(/levels deep/)
+    expect(await db.categories.count()).toBe(5)
   })
 
   it('renames and archives without touching saved sessions', async () => {
@@ -569,5 +574,145 @@ describe('title and recent use', () => {
     expect(recent).toHaveLength(3)
     expect(recent.map((s) => s.endedAt)).toEqual(recent.map((s) => s.endedAt).slice().sort().reverse())
     expect(recent[0]?.startedAt).toBe(new Date(T0 + 4 * 60 * MIN).toISOString())
+  })
+})
+
+describe('reorganising categories', () => {
+  const NOW = Date.parse('2026-01-12T12:00:00Z')
+  const get = async (id: string) => (await db.categories.get(id))!
+  const inkOf = async (id: string) => resolveInk(id, await db.categories.toArray())
+  const record = async (categoryId: string, startIso: string, endIso: string) =>
+    addManualSession(db, { categoryId, title: null, startedAt: startIso, endedAt: endIso, pausedIntervals: [] }, NOW)
+
+  async function setUp() {
+    const science = await createCategory(db, { name: 'Science', parentId: null }, T0) // lapis
+    const physics = await createCategory(db, { name: 'Physics', parentId: science.id }, T0)
+    const music = await createCategory(db, { name: 'Music', parentId: null }, T0) // oxblood
+    const violin = await createCategory(db, { name: 'Violin', parentId: music.id }, T0)
+    await setCategoryInk(db, music.id, 'brass', T0)
+    const learning = await createCategory(db, { name: 'Learning', parentId: null }, T0)
+    const sessions = [
+      await record(physics.id, '2026-01-10T09:00:00.000Z', '2026-01-10T10:00:00.000Z'),
+      await record(science.id, '2026-01-10T11:00:00.000Z', '2026-01-10T11:30:00.000Z'),
+      await record(violin.id, '2026-01-10T23:30:00.000Z', '2026-01-11T00:30:00.000Z'),
+    ]
+    return { science, physics, music, violin, learning, sessions }
+  }
+
+  it('moves groups under a new parent, keeping ids, sub-categories, sessions and inks', async () => {
+    const { science, physics, music, violin, learning, sessions } = await setUp()
+    // The new group avoids the inks already in use (lapis and brass; oxblood was freed when Music changed).
+    expect(learning.color).toBe('oxblood')
+    const before = await db.sessions.toArray()
+
+    await moveCategory(db, science.id, learning.id, NOW)
+    await moveCategory(db, music.id, learning.id, NOW)
+
+    expect((await get(science.id)).parentId).toBe(learning.id)
+    expect((await get(music.id)).parentId).toBe(learning.id)
+    expect((await get(physics.id)).parentId).toBe(science.id)
+    expect((await get(violin.id)).parentId).toBe(music.id)
+    expect(await db.sessions.toArray()).toEqual(before)
+    expect(sessions.map((s) => s.id).sort()).toEqual(before.map((s) => s.id).sort())
+
+    // Nothing changes colour.
+    expect([await inkOf(science.id), await inkOf(physics.id), await inkOf(music.id), await inkOf(violin.id)]).toEqual([
+      'lapis', 'lapis', 'brass', 'brass',
+    ])
+    expect(await inkOf(learning.id)).toBe('oxblood')
+  })
+
+  it('applies the new tree to past totals and filters', async () => {
+    const { science, music, learning } = await setUp()
+    const day = { start: Date.parse('2026-01-10T00:00:00Z'), end: Date.parse('2026-01-12T00:00:00Z') }
+    const learningTotal = async () => {
+      const categories = await db.categories.toArray()
+      const sessions = await sessionsOverlapping(db, day.start, day.end)
+      return windowActiveMs(filterByCategory(sessions, categoryFilterIds(learning.id, categories)), day.start, day.end)
+    }
+    expect(await learningTotal()).toBe(0)
+    await moveCategory(db, science.id, learning.id, NOW)
+    expect(await learningTotal()).toBe(90 * MIN)
+    await moveCategory(db, music.id, learning.id, NOW)
+    expect(await learningTotal()).toBe(150 * MIN)
+    // Moving back out undoes it, and history follows again.
+    await moveCategory(db, music.id, null, NOW)
+    expect(await learningTotal()).toBe(90 * MIN)
+  })
+
+  it('pins the shown ink when a category that was following its group moves', async () => {
+    const { violin, learning } = await setUp()
+    expect((await get(violin.id)).color).toBeNull()
+    await moveCategory(db, violin.id, learning.id, NOW)
+    expect((await get(violin.id)).color).toBe('brass')
+    expect(await inkOf(violin.id)).toBe('brass')
+    // Moved to the top level, it keeps that ink as a group's ink.
+    await moveCategory(db, violin.id, null, NOW)
+    expect((await get(violin.id)).color).toBe('brass')
+  })
+
+  it('can move and choose to follow the new parent in one edit', async () => {
+    const { science, learning } = await setUp()
+    await editCategory(db, science.id, { parentId: learning.id, color: null }, NOW)
+    expect(await inkOf(science.id)).toBe('oxblood')
+  })
+
+  it('refuses invalid moves and leaves everything as it was', async () => {
+    const { science, physics, music, violin, learning } = await setUp()
+    await moveCategory(db, science.id, learning.id, NOW)
+    const snapshot = await db.categories.toArray()
+
+    await expect(moveCategory(db, science.id, science.id, NOW)).rejects.toThrow(/inside itself/)
+    await expect(moveCategory(db, learning.id, physics.id, NOW)).rejects.toThrow(/which is inside it/)
+    await expect(moveCategory(db, music.id, 'missing', NOW)).rejects.toThrow(/no longer exists/)
+    await expect(moveCategory(db, 'missing', null, NOW)).rejects.toThrow(/no longer exists/)
+    await createCategory(db, { name: 'science', parentId: null }, NOW)
+    await expect(moveCategory(db, science.id, null, NOW)).rejects.toThrow(/already exists/)
+    await archiveCategory(db, music.id, NOW)
+    await expect(moveCategory(db, physics.id, music.id, NOW)).rejects.toThrow(/archived/)
+
+    const after = await db.categories.toArray()
+    for (const c of snapshot.filter((x) => x.id !== music.id && x.id !== violin.id)) expect(after.find((x) => x.id === c.id)).toEqual(c)
+  })
+
+  it('refuses a move that would nest beyond the limit', async () => {
+    const { science, physics } = await setUp()
+    let deepest = physics
+    for (const name of ['Optics', 'Lenses']) deepest = await createCategory(db, { name, parentId: deepest.id }, T0)
+    const other = await createCategory(db, { name: 'Other', parentId: null }, T0)
+    const inner = await createCategory(db, { name: 'Inner', parentId: other.id }, T0)
+    // Science carries four levels; under Inner (level 2) it would reach level 6.
+    await expect(moveCategory(db, science.id, inner.id, NOW)).rejects.toThrow(/levels deep/)
+    await moveCategory(db, science.id, other.id, NOW)
+    expect((await get(science.id)).parentId).toBe(other.id)
+  })
+
+  it('archives and restores whole branches at any depth, keeping history', async () => {
+    const { science, physics, music, violin, learning } = await setUp()
+    await moveCategory(db, science.id, learning.id, NOW)
+    await moveCategory(db, music.id, learning.id, NOW)
+    await archiveCategory(db, learning.id, NOW)
+    const archived = await db.categories.toArray()
+    expect([learning, science, physics, music, violin].every((c) => archived.find((x) => x.id === c.id)?.archivedAt)).toBe(true)
+    expect(await db.sessions.count()).toBe(3)
+
+    // Restoring a deep category brings back the branch above it, not its archived siblings.
+    await restoreCategory(db, physics.id, NOW + MIN)
+    const restored = await db.categories.toArray()
+    const live = (id: string) => restored.find((c) => c.id === id)?.archivedAt === null
+    expect([live(physics.id), live(science.id), live(learning.id), live(music.id)]).toEqual([true, true, true, false])
+  })
+
+  it('backs up and restores a deeper tree exactly', async () => {
+    const { science, music, learning } = await setUp()
+    await moveCategory(db, science.id, learning.id, NOW)
+    await moveCategory(db, music.id, learning.id, NOW)
+    const parsed = validateBackup(JSON.parse(JSON.stringify(await exportBackup(db, NOW))), NOW)
+    if (!parsed.ok) throw new Error(parsed.errors.join(' '))
+    const fresh = new CadenceDb(`${dbName}-fresh`)
+    await replaceAllData(fresh, parsed.backup)
+    const byId = <T extends { id: string }>(rows: T[]) => rows.sort((a, b) => a.id.localeCompare(b.id))
+    expect(byId(await fresh.categories.toArray())).toEqual(byId(await db.categories.toArray()))
+    expect(byId(await fresh.sessions.toArray())).toEqual(byId(await db.sessions.toArray()))
   })
 })

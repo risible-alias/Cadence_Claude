@@ -1,17 +1,18 @@
-import { topLevelId } from './categories'
+import { categoryOutline, descendantIds } from './categories'
+import { inkOwnerId } from './inks'
 import { activeOverlapMs, shiftLocalDay, toMs } from './time'
 import type { Category, Session } from './types'
 
 type Spans = Pick<Session, 'startedAt' | 'endedAt' | 'pausedIntervals'>
 
 /**
- * The category ids matched by a filter: the chosen category plus, for a
- * top-level category, its sub-categories (archived ones included, so history
- * is never hidden). `null` means no filter.
+ * The category ids matched by a filter: the chosen category and everything
+ * inside it at any depth, as the tree is now (archived ones included, so
+ * history is never hidden). `null` means no filter.
  */
 export function categoryFilterIds(filterId: string | null, categories: readonly Category[]): Set<string> | null {
   if (filterId === null) return null
-  return new Set([filterId, ...categories.filter((c) => c.parentId === filterId).map((c) => c.id)])
+  return new Set([filterId, ...descendantIds(filterId, categories)])
 }
 
 export function filterByCategory<T extends { categoryId: string }>(items: readonly T[], ids: Set<string> | null): T[] {
@@ -72,25 +73,48 @@ export function categoryTotals(
 }
 
 /**
- * Active time per top-level group inside the window, largest first. Groups
- * are identified by category id, so two groups that share an ink stay separate.
+ * Active time per ink owner inside the window, largest first (see
+ * `inkOwnerId`). Each entry is one category, so two that share an ink stay
+ * separate, and a sub-category with its own ink is counted on its own.
  */
-export function groupTotals(
+export function inkGroupTotals(
   sessions: ReadonlyArray<Spans & { categoryId: string }>,
   startMs: number,
   endMs: number,
   categories: readonly Category[],
 ): Array<{ groupId: string; activeMs: number }> {
   return categoryTotals(
-    sessions.map((s) => ({ ...s, categoryId: topLevelId(s.categoryId, categories) })),
+    sessions.map((s) => ({ ...s, categoryId: inkOwnerId(s.categoryId, categories) })),
     startMs,
     endMs,
   ).map(({ categoryId, activeMs }) => ({ groupId: categoryId, activeMs }))
 }
 
 /**
- * For a stacked chart: each day's active time split by top-level group. Every
- * day lists its segments in the same `groupOrder`, so a group sits at the same
+ * Every category with time in the window, as an indented outline: `ownMs` is
+ * time recorded against the category itself, `totalMs` adds everything inside
+ * it. Uses the tree as it is now, so moving a category regroups its history.
+ */
+export function outlineTotals(
+  sessions: ReadonlyArray<Spans & { categoryId: string }>,
+  startMs: number,
+  endMs: number,
+  categories: readonly Category[],
+): Array<{ categoryId: string; depth: number; ownMs: number; totalMs: number }> {
+  const own = new Map(categoryTotals(sessions, startMs, endMs).map((t) => [t.categoryId, t.activeMs]))
+  return categoryOutline(categories, { includeArchived: true })
+    .map(({ category, depth }) => ({
+      categoryId: category.id,
+      depth,
+      ownMs: own.get(category.id) ?? 0,
+      totalMs: [category.id, ...descendantIds(category.id, categories)].reduce((sum, id) => sum + (own.get(id) ?? 0), 0),
+    }))
+    .filter((row) => row.totalMs > 0)
+}
+
+/**
+ * For a stacked chart: each day's active time split by ink owner. Every day
+ * lists its segments in the same `groupOrder`, so a group sits at the same
  * place in every bar.
  */
 export function stackByDay(
@@ -104,7 +128,7 @@ export function stackByDay(
   let dayStartMs = firstDayStartMs
   for (let i = 0; i < dayCount; i++) {
     const dayEndMs = shiftLocalDay(dayStartMs, 1)
-    const totals = groupTotals(sessions, dayStartMs, dayEndMs, categories)
+    const totals = inkGroupTotals(sessions, dayStartMs, dayEndMs, categories)
     const segments = groupOrder.flatMap((groupId) => {
       const found = totals.find((t) => t.groupId === groupId)
       return found ? [found] : []

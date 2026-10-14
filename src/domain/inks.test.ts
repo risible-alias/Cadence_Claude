@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { assignMissingInks, defaultInkFor, INKS, inkName, inkProblem, isInkId, resolveInk } from './inks'
+import { assignMissingInks, defaultInkFor, INKS, inkName, inkOwnerId, inkProblem, isInkId, resolveInk } from './inks'
 import type { Category } from './types'
 
 const cat = (id: string, over: Partial<Category> = {}): Category => ({
@@ -93,11 +93,22 @@ describe('defaultInkFor', () => {
     expect(categories).toHaveLength(INKS.length * 3)
   })
 
-  it('counts only live top-level categories', () => {
+  it('counts inks in use at every level, but not archived categories', () => {
     const categories = [
       cat('a', { color: 'lapis' }),
       cat('gone', { color: 'oxblood', archivedAt: '2026-01-02T00:00:00.000Z' }),
       cat('child', { parentId: 'a', color: 'oxblood' }),
+      cat('inherits', { parentId: 'a' }),
+    ]
+    // Oxblood is visible on a sub-category, so a new group avoids it.
+    expect(defaultInkFor(categories)).toBe('plum')
+  })
+
+  it('keeps avoiding inks that moved below the top level', () => {
+    const categories = [
+      cat('learning', { color: 'plum' }),
+      cat('science', { parentId: 'learning', color: 'lapis' }),
+      cat('music', { parentId: 'learning', color: 'brass' }),
     ]
     expect(defaultInkFor(categories)).toBe('oxblood')
   })
@@ -149,5 +160,30 @@ describe('assignMissingInks', () => {
     const result = assignMissingInks(many)
     expect(result.every((c) => isInkId(c.color))).toBe(true)
     expect(result.slice(0, 7).map((c) => c.color)).toEqual(['lapis', 'oxblood', 'plum', 'forest', 'brass', 'cerulean', 'lapis'])
+  })
+})
+
+describe('inks at any depth', () => {
+  const categories = [
+    cat('learning', { color: 'forest' }),
+    cat('science', { parentId: 'learning', color: 'lapis' }),
+    cat('physics', { parentId: 'science' }),
+    cat('optics', { parentId: 'physics' }),
+    cat('music', { parentId: 'learning' }),
+    cat('violin', { parentId: 'music' }),
+  ]
+
+  it('inherits from the nearest ancestor that has an ink', () => {
+    expect(resolveInk('optics', categories)).toBe('lapis')
+    expect(resolveInk('violin', categories)).toBe('forest')
+    expect(inkOwnerId('optics', categories)).toBe('science')
+    expect(inkOwnerId('violin', categories)).toBe('learning')
+    expect(inkOwnerId('science', categories)).toBe('science')
+  })
+
+  it('falls back to the top-level category when no ancestor has an ink', () => {
+    const bare = categories.map((c) => ({ ...c, color: null }))
+    expect(inkOwnerId('optics', bare)).toBe('learning')
+    expect(resolveInk('optics', bare)).toBe(resolveInk('learning', bare))
   })
 })

@@ -13,8 +13,8 @@ weekly bars, statistics and CSV export are not built.
 
 - **Installable, offline-capable PWA.**
 - **Three sections:** Track, Explore and Settings, with a small frosted-glass navigation pane.
-- **Activities** (categories) in a two-level hierarchy, each marked with one of a curated set
-  of inks.
+- **Activities** (categories) nested up to five levels deep, movable at any time, each marked
+  with one of a curated set of inks.
 - **Timer:** one session at a time; begin, pause, resume, finish, discard; survives reloads.
 - **Optional reflections:** concentration, mental fatigue and notes, each independently optional.
 - **History:** a to-scale day timeline and a week view, filterable by activity; manual entry,
@@ -50,12 +50,16 @@ secondary text. (The code and the data format call them *categories*; the interf
   that began the previous day is listed above the scale with only this day's share. Sessions
   that overlap, or are too short to label without colliding, sit side by side. The session in
   progress is drawn dashed, labelled, not editable and not counted. Tap a block to edit it.
-- **Week** (Monday to Sunday) shows the total, a stacked bar per day by top-level group, the
-  groups with their time and share, a per-activity breakdown, and each day with its total; a
-  day opens in the Day view.
+- **Week** (Monday to Sunday) shows the total, a bar per day divided by ink, a key naming each
+  part with its time and share, the activities as an indented tree where each total includes
+  everything inside it, and each day with its total; a day opens in the Day view.
+  Each part of a bar is the activity that owns that ink: an activity with its own ink is its own
+  part, and one that follows its group's ink is counted with that group. So after moving
+  Science (lapis) and Music (brass) into a new Learning, the chart still shows a lapis part and a
+  brass part, and the tree shows Learning with their combined total.
 - **The date** is plain text between two arrows. The native date picker lies invisibly over the
   text, so tapping it opens the system picker but its width can never push the row out of line.
-- **Filter** by one activity; a group includes its sub-activities.
+- **Filter** by one activity; it includes everything inside it, at any depth.
 - **Add a past session** opens the same sheet used for editing.
 
 There is no "Patterns" view yet. The design prototypes sketched one with invented data; nothing
@@ -63,9 +67,25 @@ of it was carried into the app.
 
 ### Settings
 
-- **Activities:** the list with each activity's ink named beside its mark; tap one to rename it,
-  change its ink or archive it. Add an activity on its own or inside another. Archived
-  activities can be restored.
+- **Activities:** an indented outline with each activity's own ink named beside its mark ("Edit"
+  where it follows its group). Tap one to rename it, move it, change its ink or archive it. Add
+  an activity on its own or inside another. Archived activities can be restored.
+
+### Reorganising activities
+
+- An activity can be moved inside another, or back to the top level, from its edit sheet
+  ("Inside"). Everything inside it moves along. Nesting can go five levels deep.
+- Moving changes only the activity's `parentId`. Its id, its sessions and their times are
+  untouched, so its whole history moves with it: past totals, filters and the week view are
+  always calculated from the tree as it is now.
+- The "Inside" menu offers only valid places: never the activity itself, anything inside it, an
+  archived activity, or anything that would exceed five levels. The same checks are enforced
+  when saving, and a name already used at the destination is refused.
+- Colours do not change when you move things. An activity with its own ink keeps it. One that
+  was following its group's ink is given that ink as its own, so it looks the same afterwards;
+  choose "Same as …" in the same edit to follow its new group instead.
+- Archiving an activity archives everything inside it, at any depth. Restoring one brings back
+  every archived activity above it, and whatever was archived together with it.
 - **Keeping your record:** export and restore (see Backup and restore), and whether the browser
   treats the data as persistent.
 - **Install** guidance (hidden once installed) and a short About list of fixed behaviours.
@@ -130,15 +150,16 @@ sienna) and left out: each sat too close to oxblood, plum or brass.
 **How inks are assigned**
 
 - There are six inks and no limit on the number of activities. Inks are reused freely.
-- Each top-level activity stores an ink. A new one is given the ink least used by the other
-  top-level activities (palette order on a tie), so the first six each get their own.
-- A sub-activity follows its group's ink unless given its own in Settings; it can go back to
-  following.
+- Each top-level activity stores an ink. A new one is given the ink least used by activities
+  that have an ink of their own at any level (palette order on a tie), so the first six each
+  get their own and new groups avoid colours already visible lower down.
+- An activity inside another follows the nearest one above it that has an ink, unless given its
+  own in Settings; it can go back to following.
 - An ink is stored on the activity itself (`color` holds the ink's id, e.g. `"forest"`).
   Nothing is derived from position or count, so adding, archiving, restoring or reordering
   activities never changes another's ink.
-- Reports and charts group by activity, never by ink. Two groups in the same ink remain two
-  rows and two bar segments, separated by a gap of paper and named in the list beneath.
+- Reports and charts group by activity, never by ink. Two activities in the same ink remain two
+  rows and two bar parts, separated by a gap of paper and named in the key beneath.
 - **Adding an ink** is three small edits: the id in `INKS` (`src/domain/inks.ts`), and its
   token lines and `.ink-<id>` rule in `tokens.css`. The palette order should be re-checked for
   colour-blind separation when it changes.
@@ -253,6 +274,11 @@ starts with empty storage there, so export a backup first.
   in progress at export time so you can add it as a past session.
 - Restore is refused while a timer is in progress; finish or cancel it first.
 - Unknown fields in a backup are ignored, and timestamps are normalised to UTC.
+- Categories in a backup may be nested up to five levels. Import rejects a category that is
+  inside itself through its parents, refers to a missing parent, or is nested deeper.
+- **Compatibility with older copies of Cadence:** backups of trees within two levels restore in
+  any version. A backup with three or more levels is rejected by versions from before this
+  change, whose import still enforced two levels. Older backups restore here unchanged.
 
 ## Setup
 
@@ -366,6 +392,9 @@ Safari-specific handling:
   sub-categories archived in that same action; restoring a sub-category also restores its parent.
   A restore is refused if a live category now has the same name in the same place.
 - **Duplicate names** are rejected among non-archived siblings (case-insensitive).
+- **Nesting** is limited to five levels so the outline stays readable on a phone. The limit is
+  `MAX_CATEGORY_DEPTH` in `src/domain/categories.ts`.
+- **Labels** show an activity's immediate parent only ("Physics — Science"), not the full path.
 - **Totals** count saved sessions only, not the session in progress.
 - **One database migration:** schema version 2 assigns inks to existing top-level categories.
   Table layouts are unchanged, and sessions, the active session and earlier backups work as
@@ -412,7 +441,6 @@ Safari-specific handling:
 - **Typeface.** The design relies on a book serif present on Apple devices (Iowan Old Style or
   Palatino). Other platforms fall back to Georgia and lose some of the character.
 - **Week view** no longer lists every session under each day; open a day to see and edit them.
-- **Moving an activity** to a different group is not possible; create a new one instead.
 - **Preferences** (week start, appearance, reflection offer) are fixed and only described.
 - **The sheet and glass pane** have been checked in Playwright's WebKit build, not on a physical
   iPhone; how the frosted pane looks over moving text is worth judging on a real device.
